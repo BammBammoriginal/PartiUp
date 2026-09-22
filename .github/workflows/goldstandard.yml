@@ -1,0 +1,69 @@
+name: PartiUp Goldstandard
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: partiup-gold-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  goldstandard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Read the proposed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      # The original RC4 ZIP contains a compact, incomplete lockfile. Generate
+      # a full cross-platform lock once on a clean hosted runner, upload it,
+      # then replace this temporary step with npm ci from the reviewed lock.
+      - name: Prepare complete dependency lock
+        run: |
+          rm package-lock.json
+          npm install --package-lock-only --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium and system libraries
+        run: npx playwright install --with-deps chromium
+
+      - name: Check architecture and static gates
+        run: npm run preflight
+
+      - name: Check security and privacy flows
+        run: npm run qa:security
+
+      - name: Exercise desktop and mobile Goldstandard
+        run: npm run qa:gold
+
+      - name: Save generated lock for review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dependency-lock-candidate
+          path: package-lock.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Save browser evidence if a test fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gold-browser-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 3
