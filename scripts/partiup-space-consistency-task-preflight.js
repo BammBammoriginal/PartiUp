@@ -1,0 +1,18 @@
+const fs=require('fs');
+const app=fs.readFileSync('public/app.js','utf8');
+const srv=fs.readFileSync('server/server.js','utf8');
+const checks=[];const add=(n,ok)=>checks.push([n,!!ok]);
+add('Community trennt Funktionen von Info/Einstellungen',app.includes('space-function-tabs')&&app.includes('data-ctab="info"')&&app.includes('data-ctab="admin"'));
+add('Projekt/Event trennt Funktionen von Info/Einstellungen',app.includes('data-otab="info"')&&app.includes('data-otab="admin"')&&app.includes('object-space-tabs space-function-tabs'));
+add('Beteiligung trennt Funktionen von Info/Einstellungen',app.includes('data-ptab="meta"')&&app.includes('data-ptab="admin"')&&app.includes('aria-label="Beteiligungsfunktionen"'));
+add('Info bündelt Vertrauen und Herkunft',app.includes('<h3>Vertrauen & Herkunft</h3>${verificationDetails(o)}')&&app.includes('<h3>Vertrauen & Herkunft</h3>${verificationDetails(p)}'));
+add('Admin bündelt Rollen und Moderation',app.includes('Module, Rollen, Moderation und technische Einstellungen')&&app.includes('Beteiligungsraum verwalten'));
+add('Eigenständiges Self-Assign-Recht vorhanden',srv.includes("'task.self_assign'"));
+add('Mitglieder dürfen standardmäßig selbst übernehmen',srv.includes("'task.update_own','task.self_assign','participation.interact'"));
+add('Fremdzuweisung bleibt task.assign',srv.includes("canAssign=hasPermission(req.userId,type,row.id,'task.assign')"));
+add('Belegte fremde Aufgabe kann nicht ohne Assign-Recht übernommen werden',srv.includes("task.assignee_user_id&&task.assignee_user_id!==req.userId&&!canAssign"));
+add('Self-Assign API vorhanden',srv.includes("/tasks/:taskId/assignee"));
+add('Task UX bietet Ich übernehme',app.includes('Ich übernehme')&&app.includes('data-task-take'));
+add('Eigene Aufgabe kann freigegeben werden',app.includes('data-task-release')&&app.includes('Aufgabe freigegeben'));
+add('Aufgabenerstellung respektiert Assign-Rechte',app.includes("canAssign=perms.includes('task.assign')")&&app.includes('taskTakeSelf'));
+const fail=checks.filter(x=>!x[1]);for(const [n,ok] of checks)console.log(`${ok?'✓':'✗'} ${n}`);if(fail.length){console.error(`P0.10.4 Space/Task-Preflight: ${checks.length-fail.length}/${checks.length} bestanden`);process.exit(1)}console.log(`P0.10.4 Space/Task-Preflight: ${checks.length}/${checks.length} bestanden`);

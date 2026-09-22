@@ -1,0 +1,122 @@
+[
+  {
+    "name": "Mastodon",
+    "slug": "mastodon",
+    "icon": "🐘",
+    "shortDescription": "Soziales Netzwerk für kurze Beiträge, Gespräche und Föderation zwischen vielen unabhängigen Servern.",
+    "longDescription": "Mastodon ist eine der bekanntesten Fediverse-Anwendungen. Menschen können Accounts auf unterschiedlichen Servern nutzen und trotzdem miteinander folgen, diskutieren und Inhalte austauschen.",
+    "category": "Social",
+    "externalUrl": "https://joinmastodon.org/",
+    "infoUrl": "https://joinmastodon.org/",
+    "partiUpStatus": "geplant",
+    "shortReason": "Relevant für Personen, Feeds und offene Social-Web-Verbindungen."
+  },
+  {
+    "name": "Mobilizon",
+    "slug": "mobilizon",
+    "icon": "📅",
+    "shortDescription": "Offene Plattform für Veranstaltungen, Gruppen und gemeinschaftliche Organisation.",
+    "longDescription": "Mobilizon konzentriert sich auf Veranstaltungen und Gruppen. Es ist besonders interessant für PartiUp, weil Events und gemeinschaftliche Organisation strukturiert und föderiert abgebildet werden können.",
+    "category": "Events",
+    "externalUrl": "https://mobilizon.org/",
+    "infoUrl": "https://mobilizon.org/",
+    "partiUpStatus": "geplant",
+    "shortReason": "Passt zu Veranstaltungen, Gruppen und lokaler Organisation."
+  },
+  {
+    "name": "PeerTube",
+    "slug": "peertube",
+    "icon": "▶",
+    "shortDescription": "Dezentrale Videoplattform mit unabhängigen Anbietern und föderierter Verbreitung.",
+    "longDescription": "PeerTube ermöglicht Videoplattformen ohne zentralen Hosting-Konzern. Instanzen können sich miteinander verbinden und Inhalte gegenseitig auffindbar machen.",
+    "category": "Video",
+    "externalUrl": "https://joinpeertube.org/",
+    "infoUrl": "https://joinpeertube.org/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Später interessant für Video-Inhalte in Communities, Projekten und Events."
+  },
+  {
+    "name": "Pixelfed",
+    "slug": "pixelfed",
+    "icon": "▣",
+    "shortDescription": "Fediverse-Anwendung für Bilder und visuelle Beiträge mit unabhängigen Servern.",
+    "longDescription": "Pixelfed ist auf Fotos und visuelle Inhalte ausgerichtet und nutzt ActivityPub zur Vernetzung mit anderen Fediverse-Diensten.",
+    "category": "Bilder",
+    "externalUrl": "https://pixelfed.org/",
+    "infoUrl": "https://pixelfed.org/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Relevant für eine spätere offene Medienanbindung ohne eigenes Medien-Silo."
+  },
+  {
+    "name": "Lemmy",
+    "slug": "lemmy",
+    "icon": "💬",
+    "shortDescription": "Föderierte Communities für Diskussionen, Links und thematische Beiträge.",
+    "longDescription": "Lemmy verbindet thematische Communities und Diskussionen über ActivityPub. Das Modell ist besonders interessant für strukturierte Gruppen- und Diskussionsräume.",
+    "category": "Diskussion",
+    "externalUrl": "https://join-lemmy.org/",
+    "infoUrl": "https://join-lemmy.org/",
+    "partiUpStatus": "geplant",
+    "shortReason": "Naheliegend für Community-Diskussionen und föderierte Gruppenstrukturen."
+  },
+  {
+    "name": "Friendica",
+    "slug": "friendica",
+    "icon": "👥",
+    "shortDescription": "Soziales Netzwerk mit Fokus auf Kontakte, Beiträge und Verbindungen zu unterschiedlichen offenen Netzwerken.",
+    "longDescription": "Friendica verbindet klassische soziale Netzwerkfunktionen mit mehreren offenen Protokollen und Connectoren. Dadurch ist es als Referenz für interoperable Personen- und Netzwerklogik interessant.",
+    "category": "Social",
+    "externalUrl": "https://friendi.ca/",
+    "infoUrl": "https://friendi.ca/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Interessant für Personenbeziehungen, Federation und Connector-Denken."
+  },
+  {
+    "name": "Bonfire",
+    "slug": "bonfire",
+    "icon": "🔥",
+    "shortDescription": "Modulare Social-Web-Plattform für Communities, Gruppen, Governance und unterschiedliche soziale Räume.",
+    "longDescription": "Bonfire verfolgt einen modularen Ansatz für Social-Web-Funktionen. Besonders relevant sind seine Community-, Gruppen-, Rollen- und Governance-Konzepte.",
+    "category": "Communities",
+    "externalUrl": "https://bonfirenetworks.org/",
+    "infoUrl": "https://bonfirenetworks.org/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Konzeptionell nah an modularen Community- und Governance-Räumen."
+  },
+  {
+    "name": "Gancio",
+    "slug": "gancio",
+    "icon": "🎟",
+    "shortDescription": "Schlanke freie Plattform für lokale Veranstaltungen und offene Event-Föderation.",
+    "longDescription": "Gancio ist bewusst fokussiert auf Veranstaltungen und lokale Szenen. Die geringe Komplexität macht es zu einer interessanten Referenz für offene Event-Ökosysteme.",
+    "category": "Events",
+    "externalUrl": "https://gancio.org/",
+    "infoUrl": "https://gancio.org/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Relevant für lokale Event-Föderation und schlanke Veranstaltungslogik."
+  },
+  {
+    "name": "NodeBB",
+    "slug": "nodebb",
+    "icon": "◫",
+    "shortDescription": "Moderne Forensoftware mit ActivityPub-Unterstützung für offene Diskussionen und Communities.",
+    "longDescription": "NodeBB verbindet klassische Foren-UX mit ActivityPub. Dadurch können Diskussionen und Community-Strukturen über Servergrenzen hinweg anschlussfähig werden.",
+    "category": "Diskussion",
+    "externalUrl": "https://nodebb.org/",
+    "infoUrl": "https://nodebb.org/",
+    "partiUpStatus": "geplant",
+    "shortReason": "Relevant für strukturierte Diskussionen und Gruppen-Föderation."
+  },
+  {
+    "name": "Funkwhale",
+    "slug": "funkwhale",
+    "icon": "♫",
+    "shortDescription": "Dezentrale Plattform für Audio und Musik in unabhängigen, miteinander verbundenen Communities.",
+    "longDescription": "Funkwhale zeigt, wie auch Audio-Inhalte in einem föderierten Ökosystem funktionieren können, ohne an eine zentrale Plattform gebunden zu sein.",
+    "category": "Audio",
+    "externalUrl": "https://www.funkwhale.audio/",
+    "infoUrl": "https://www.funkwhale.audio/",
+    "partiUpStatus": "perspektivisch",
+    "shortReason": "Beispiel für offene Medienökosysteme jenseits von Text, Bild und Video."
+  }
+]

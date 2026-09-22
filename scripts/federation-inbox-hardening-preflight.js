@@ -1,0 +1,28 @@
+'use strict';
+const fs=require('fs');const path=require('path');const assert=require('assert');
+const root=path.join(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server','server.js'),'utf8');
+const protocol=fs.readFileSync(path.join(root,'server','federation','protocol.js'),'utf8');
+const security=fs.readFileSync(path.join(root,'server','federation','security.js'),'utf8');
+const checks=[];function check(name,ok){checks.push([name,!!ok]);if(!ok)process.exitCode=1}
+check('user inbox has federation IP limiter',/users\/:id\/inbox',federationInboxIpLimit/.test(server));
+check('space inbox has federation IP limiter',/spaces\/:id\/inbox',federationInboxIpLimit/.test(server));
+check('actor and host limiter uses authenticated remote actor',/verifyLegacySignature\(req,activity\);enforceActorHostLimit\(\{actor:remote.id\}\)/.test(server));
+check('signature verified before replay acceptance',server.indexOf('verifyLegacySignature(req,activity)')<server.indexOf('isRecentReplay(remote.id,actId)'));
+check('activity IDs are mandatory HTTPS URLs',/if\(!id\|\|id.length>2048\)/.test(server)&&/u.protocol!==['"]https:/.test(server));
+check('429 response hides sensitive detail',/federation_rate_limited/.test(server));
+check('503 capacity response hides sensitive detail',/federation_temporarily_unavailable/.test(server));
+check('global remote-fetch concurrency gate exists',/remoteFetchConcurrency/.test(security)&&/remoteFetchGate/.test(security));
+check('actor lookup concurrency gate exists',/actorLookupConcurrency/.test(security)&&/actorLookupGate/.test(security));
+check('rate limiter storage is bounded',/BoundedTtlMap/.test(security)&&/PARTIUP_FEDERATION_RATE_BUCKETS/.test(security));
+check('actor cache is bounded and TTL-controlled',/PARTIUP_FEDERATION_ACTOR_CACHE_ENTRIES/.test(security)&&/PARTIUP_FEDERATION_ACTOR_CACHE_TTL_MS/.test(security));
+check('cached actor is minimized before storage',/minimalRemoteActor/.test(protocol)&&/pem.length>16384/.test(protocol));
+check('negative actor cache is short and controlled',/PARTIUP_FEDERATION_NEGATIVE_CACHE_TTL_MS/.test(security)&&/remoteStatus===404\|\|e\?\.remoteStatus===410/.test(protocol));
+check('cached key failure forces refresh',/invalidateActor\(actorUri\).*forceRefresh:true/s.test(protocol));
+check('SSRF HTTPS/private-network validation remains',/Private\/reservierte Remote-Adresse blockiert/.test(protocol)&&/u.protocol!==['"]https:/.test(protocol));
+check('remote timeout remains bounded',/PARTIUP_FEDERATION_REMOTE_TIMEOUT_MS/.test(protocol)&&/,8000,1000,15000/.test(protocol));
+check('remote response size remains bounded',/PARTIUP_FEDERATION_REMOTE_MAX_BYTES/.test(protocol)&&/2\*1024\*1024/.test(protocol));
+check('actor response has stricter size limit',/PARTIUP_FEDERATION_ACTOR_MAX_BYTES/.test(protocol)&&/256\*1024/.test(protocol));
+check('inbound JSON body remains securely bounded/configurable',/PARTIUP_JSON_BODY_MAX_BYTES/.test(server)&&/64\*1024,16\*1024,256\*1024/.test(server));
+check('replay cache is bounded',/PARTIUP_FEDERATION_REPLAY_CACHE_ENTRIES/.test(security)&&/replayCache=new BoundedTtlMap/.test(security));
+console.log(`Federation Inbox Hardening: ${checks.filter(x=>x[1]).length}/${checks.length}`);for(const [n,ok] of checks)console.log(`${ok?'PASS':'FAIL'} ${n}`);

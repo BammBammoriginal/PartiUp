@@ -1,0 +1,36 @@
+const fs=require('fs');
+const files={pkg:require('../package.json'),db:fs.readFileSync('server/db.js','utf8'),protocol:fs.readFileSync('server/federation/protocol.js','utf8'),server:fs.readFileSync('server/server.js','utf8'),ui:fs.readFileSync('public/app.js','utf8')};
+const checks=[
+ ['version P0.7+',(()=>{const [a,b]=String(files.pkg.version||'').split('.').map(Number);return a===0&&b>=7})()],
+ ['Event mapping remains ActivityStreams Event',fs.readFileSync('server/federation/model.js','utf8').includes("activityType: 'Event'")],
+ ['machine-readable start_at schema',files.db.includes("ensureColumn('events','start_at'")],
+ ['machine-readable end_at schema',files.db.includes("ensureColumn('events','end_at'")],
+ ['event federation state schema',files.db.includes("ensureColumn('events','federation_state'")],
+ ['remote event URI unique index',files.db.includes('idx_events_remote_uri')],
+ ['remote event actor provenance',files.db.includes("ensureColumn('events','remote_actor_uri'")],
+ ['space controls inbound event federation',files.db.includes("federation_events_inbound")&&files.ui.includes('communityFederationEventsInbound')],
+ ['FEP-8a8e minimum name/start/end emitted',files.protocol.includes("type:'Event'")&&files.protocol.includes('startTime:')&&files.protocol.includes('endTime:')&&files.protocol.includes("name:String(e.name")],
+ ['timezone designator validation',files.protocol.includes("/(Z|[+-]\\d\\d:\\d\\d)$/")],
+ ['Mobilizon joinMode mapping',files.protocol.includes("joinMode=e.attendance_policy==='open'?'free'")],
+ ['Schema.org maximum capacity mapping',files.protocol.includes('maximumAttendeeCapacity')],
+ ['Place mapping',files.protocol.includes("obj.location={type:'Place'")],
+ ['local Event AP endpoint',files.server.includes("app.get('/ap/objects/events/:id'")],
+ ['event Create activity',files.protocol.includes('function createActivityForEvent')],
+ ['event Update activity',files.protocol.includes('function updateActivityForEvent')],
+ ['event Delete/Tombstone activity',files.protocol.includes('function deleteActivityForEvent')],
+ ['event delivery uses existing signed queues',files.protocol.includes('function queueEventFederation')&&files.protocol.includes('queueActivityForSpaceFollowers')],
+ ['nonpublic event requires explicit opt-in',files.protocol.includes("event_requires_explicit_opt_in")],
+ ['standalone event requires explicit opt-in',files.protocol.includes('standalone_event_requires_public_explicit_opt_in')],
+ ['remote Event Create accepted only via enabled Space',files.server.includes("o.type==='Event'")&&files.server.includes('space.federation_events_inbound')],
+ ['event inbound permission independent from discussion inbound mode',files.server.includes("if(space.federation_mode==='off'||!space.federation_events_inbound)")&&files.server.includes("if(mode==='off'){activityStatus='deferred';}")],
+ ['remote Event actor/object host bound',files.server.includes('Remote Event-ID muss HTTPS verwenden und zum Actor-Host gehoeren')],
+ ['remote Event start/end validated',files.server.includes('Date.parse(end)<Date.parse(start)')],
+ ['remote Event duration bounded',files.server.includes('366*24*60*60*1000')],
+ ['remote Event rendered as external source',files.server.includes("'external'")&&files.server.includes('remote_location_name')],
+ ['remote Event lifecycle tombstone',files.server.includes("federation_lifecycle_state='tombstone'")],
+ ['remote Event moderation endpoint',files.server.includes("federation/remote-event-moderation")],
+ ['participant lists never emitted in Event object',!files.protocol.match(/eventForLocalEvent[\s\S]{0,5000}(attendance_counts|event_attendance)/)],
+ ['UI has event federation controls',files.ui.includes('eventFederationState')&&files.ui.includes('saveEventFederation')],
+ ['UI explains remote publication',files.ui.includes('Teilnehmerlisten werden nicht mitgesendet')]
+];
+let ok=0;for(const [n,v] of checks){console.log(v?'PASS':'FAIL',n);if(v)ok++}console.log(`\nPartiUp P0.7 Event federation preflight: ${ok}/${checks.length} checks passed.`);if(ok!==checks.length)process.exit(1);
