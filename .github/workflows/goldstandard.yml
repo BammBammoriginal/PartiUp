@@ -27,14 +27,6 @@ jobs:
         with:
           node-version: '22'
 
-      # The original RC4 ZIP contains a compact, incomplete lockfile. Generate
-      # a full cross-platform lock once on a clean hosted runner, upload it,
-      # then replace this temporary step with npm ci from the reviewed lock.
-      - name: Prepare complete dependency lock
-        run: |
-          rm package-lock.json
-          npm install --package-lock-only --no-audit --no-fund
-
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
@@ -49,15 +41,6 @@ jobs:
 
       - name: Exercise desktop and mobile Goldstandard
         run: npm run qa:gold
-
-      - name: Save generated lock for review
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: dependency-lock-candidate
-          path: package-lock.json
-          if-no-files-found: ignore
-          retention-days: 1
 
       - name: Save browser evidence if a test fails
         if: failure()
