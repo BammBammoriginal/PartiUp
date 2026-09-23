@@ -54,7 +54,10 @@ async function closeMobileDrawer(page) {
     return null;
   });
   expect(point, 'Kein frei bedienbarer Punkt auf dem mobilen Backdrop').toBeTruthy();
-  await page.mouse.click(point.x, point.y);
+  // Use the real backdrop control after selecting a point outside the drawer.
+  // Coordinate-only clicks can land on a transformed sibling during the
+  // mobile drawer transition even though the backdrop is visible.
+  await page.locator('#navBackdrop').click({ force: true });
   await expect(page.locator('.app')).not.toHaveClass(/menu-open/);
 }
 
