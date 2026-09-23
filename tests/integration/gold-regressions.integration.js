@@ -77,6 +77,21 @@ async function request(target, method, url, body) {
   return { status: response.status, data };
 }
 
+async function multipartRequest(target, url, { name = 'chat.png', mimeType = 'image/png', buffer = Buffer.from('not-an-image') } = {}) {
+  const form = new FormData();
+  form.append('image', new Blob([buffer], { type: mimeType }), name);
+  const headers = { Accept: 'application/json' };
+  const cookies = cookieHeader(target);
+  if (cookies) headers.Cookie = cookies;
+  if (target.csrf) headers['X-BUP-CSRF'] = target.csrf;
+  const response = await fetch(base + url, { method: 'POST', headers, body: form });
+  absorbCookies(target, response);
+  const raw = await response.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+  return { status: response.status, data };
+}
+
 async function login(email) {
   const target = jar();
   const token = await request(target, 'GET', '/api/security/csrf');
@@ -154,8 +169,24 @@ function check(name, condition, detail = '') {
 
     await request(max, 'POST', '/api/follows', { target_type: 'person', target_id: 'u-anna', notification_level: 'feed' });
     await request(anna, 'POST', '/api/follows', { target_type: 'person', target_id: 'u-max', notification_level: 'feed' });
+    const imageConversation = await request(max, 'POST', '/api/messages/conversations', { type: 'direct', direct_user_id: 'u-anna' });
+    check('Private image security fixture creates a real conversation', imageConversation.status === 201, `HTTP ${imageConversation.status}`);
+    const invalidImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, { name: 'not-an-image.txt', mimeType: 'text/plain' });
+    check('Unsupported private image type is rejected server-side', invalidImage.status === 400, `HTTP ${invalidImage.status}`);
+    const auditBeforeBlock = new Database(dbPath, { readonly: true });
+    const privateMediaBeforeBlock = auditBeforeBlock.prepare('SELECT COUNT(*) n FROM private_media WHERE owner_user_id=?').get('u-max').n;
+    auditBeforeBlock.close();
     const blocked = await request(max, 'POST', '/api/users/u-anna/block', {});
     check('Blocking succeeds', blocked.status === 200, `HTTP ${blocked.status}`);
+
+    const blockedImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, {
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP1sAAAAASUVORK5CYII=', 'base64')
+    });
+    check('Blocking prevents private image messages just like text messages', blockedImage.status === 403, `HTTP ${blockedImage.status}`);
+    const auditAfterBlock = new Database(dbPath, { readonly: true });
+    const privateMediaAfterBlock = auditAfterBlock.prepare('SELECT COUNT(*) n FROM private_media WHERE owner_user_id=?').get('u-max').n;
+    auditAfterBlock.close();
+    check('Rejected blocked image creates no orphaned private media', privateMediaAfterBlock === privateMediaBeforeBlock);
 
     const maxState = await request(max, 'GET', '/api/bootstrap');
     const annaState = await request(anna, 'GET', '/api/bootstrap');

@@ -14,7 +14,8 @@ const {
   blockOpenPerson,
   downloadPrivacyExport,
   openAccountDeletion,
-  submitAccountDeletion
+  submitAccountDeletion,
+  selectChatImage
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -212,6 +213,36 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await go(page, 'messages');
     await page.locator('#conversationList [data-conversation]').first().click();
     await expect(page.locator('#messageThread')).toContainText(message);
+  });
+
+  test('Chatbild lokal prüfen, entfernen und erst beim Senden übertragen', async ({ page }) => {
+    const uploads = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && /\/api\/messages\/conversations\/[^/]+\/images$/.test(request.url())) uploads.push(request.url());
+    });
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    await page.locator('#conversationPeople').selectOption(recipient);
+    await page.locator('#saveConversation').click();
+
+    await selectChatImage(page, 'desktop-vorschau.png');
+    expect(uploads).toHaveLength(0);
+    await page.locator('#removeMessageImage').click();
+    await expect(page.locator('#messageImagePreview')).toBeHidden();
+    expect(await page.locator('#messageImage').evaluate(input => input.files.length)).toBe(0);
+    expect(uploads).toHaveLength(0);
+
+    await selectChatImage(page, 'desktop-versand.png');
+    const uploaded = page.waitForResponse(response => /\/api\/messages\/conversations\/[^/]+\/images$/.test(response.url()) && response.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    expect((await uploaded).status()).toBe(201);
+    expect(uploads).toHaveLength(1);
+    await expect(page.locator('#messageThread .private-message-image')).toBeVisible();
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator('#conversationList [data-conversation]').first().click();
+    await expect(page.locator('#messageThread .private-message-image')).toBeVisible();
   });
 
   test('Projektrolle wird aus dem übergeordneten Space sicher abgeleitet', async ({ page }) => {
