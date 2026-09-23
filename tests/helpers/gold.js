@@ -40,12 +40,11 @@ async function openIdentity(page) {
 }
 
 async function closeMobileDrawer(page) {
+  await expect(page.locator('#appSidebar')).toHaveCSS('transform', 'none');
   const point = await page.evaluate(() => {
     const backdrop = document.querySelector('#navBackdrop');
-    const sidebar = document.querySelector('#appSidebar');
-    if (!backdrop || !sidebar) return null;
-    const right = sidebar.getBoundingClientRect().right;
-    const xs = [Math.min(innerWidth - 8, right + 24), innerWidth - 8];
+    if (!backdrop) return null;
+    const xs = [innerWidth - 8];
     const ys = [innerHeight / 3, innerHeight / 2, innerHeight * 0.7];
     for (const x of xs) for (const y of ys) {
       const hit = document.elementFromPoint(x, y);
@@ -54,10 +53,7 @@ async function closeMobileDrawer(page) {
     return null;
   });
   expect(point, 'Kein frei bedienbarer Punkt auf dem mobilen Backdrop').toBeTruthy();
-  // Use the real backdrop control after selecting a point outside the drawer.
-  // Coordinate-only clicks can land on a transformed sibling during the
-  // mobile drawer transition even though the backdrop is visible.
-  await page.locator('#navBackdrop').click({ force: true });
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.app')).not.toHaveClass(/menu-open/);
 }
 
