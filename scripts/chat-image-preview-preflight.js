@@ -1,4 +1,5 @@
 const fs = require('fs');
+const sharp = require('sharp');
 
 const app = fs.readFileSync('public/app.js', 'utf8');
 const css = fs.readFileSync('public/style.css', 'utf8');
@@ -27,10 +28,25 @@ const checks = [
   ['API regression rejects unsupported and blocked images without orphan media', /Unsupported private image type is rejected server-side/.test(regression) && /Blocking prevents private image messages just like text messages/.test(regression) && /creates no orphaned private media/.test(regression)]
 ];
 
-let failed = 0;
-for (const [name, ok] of checks) {
-  console.log(`${ok ? '✓' : '✗'} ${name}`);
-  if (!ok) failed += 1;
+async function run() {
+  const fixture = helper.match(/const chatImageFixture[^]*?Buffer\.from\('([^']+)', 'base64'\)/)?.[1];
+  let fixtureValid = false;
+  try {
+    const meta = await sharp(Buffer.from(fixture || '', 'base64'), { failOn: 'warning' }).metadata();
+    fixtureValid = meta.format === 'png' && meta.width > 0 && meta.height > 0;
+  } catch {}
+  checks.push(['browser image fixture decodes under the locked server image library', fixtureValid]);
+
+  let failed = 0;
+  for (const [name, ok] of checks) {
+    console.log(`${ok ? '✓' : '✗'} ${name}`);
+    if (!ok) failed += 1;
+  }
+  console.log(`\nChat image preview preflight: ${checks.length - failed}/${checks.length}`);
+  if (failed) process.exit(1);
 }
-console.log(`\nChat image preview preflight: ${checks.length - failed}/${checks.length}`);
-if (failed) process.exit(1);
+
+run().catch(error => {
+  console.error(error);
+  process.exit(1);
+});

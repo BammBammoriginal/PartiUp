@@ -180,7 +180,7 @@ function check(name, condition, detail = '') {
     check('Blocking succeeds', blocked.status === 200, `HTTP ${blocked.status}`);
 
     const blockedImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, {
-      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP1sAAAAASUVORK5CYII=', 'base64')
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64')
     });
     check('Blocking prevents private image messages just like text messages', blockedImage.status === 403, `HTTP ${blockedImage.status}`);
     const auditAfterBlock = new Database(dbPath, { readonly: true });

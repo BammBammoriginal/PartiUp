@@ -191,7 +191,7 @@ async function submitAccountDeletion(page, password) {
 const chatImageFixture = {
   name: 'partiup-chatbild.png',
   mimeType: 'image/png',
-  buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP1sAAAAASUVORK5CYII=', 'base64')
+  buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64')
 };
 
 async function selectChatImage(page, name = chatImageFixture.name) {
