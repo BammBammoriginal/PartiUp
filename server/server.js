@@ -122,7 +122,7 @@ function rateLimit(name,limit,windowMs){return (req,res,next)=>{
   res.setHeader('X-RateLimit-Limit',String(limit));
   if(b.n>limit){res.setHeader('Retry-After',String(Math.ceil((b.reset-now)/1000)));return res.status(429).json({error:'Zu viele Anfragen. Bitte kurz warten.'})}next()
 }}
-const writeLimit=rateLimit('write',180,60_000), loginLimit=rateLimit('login',10,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
+const writeLimit=rateLimit('write',180,60_000), loginLimit=rateLimit('login',10,15*60_000), deleteAccountLimit=rateLimit('delete-account',5,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
 function text(value,max=5000){return String(value??'').trim().slice(0,max)}
 const SAFE_INPUT_ICONS=new Set(['✦','◆','◈','☑','♻️','🇩🇪','🌳','🏙️','🏛️','📋','📍','🗳️','🚲']);
 function validatedIcon(value,fallback){if(value===undefined||value===null||value==='')return fallback;const v=String(value).trim();return SAFE_INPUT_ICONS.has(v)?v:null}
@@ -995,7 +995,7 @@ app.get('/api/privacy/export',requireUser,(req,res)=>{
   const data=buildPrivacyExport(db,req.userId,{privateUploadDir,publicUploadDir:uploadDir});
   res.setHeader('Content-Disposition','attachment; filename="partiup-meine-daten.json"');res.json(data);
 });
-app.post('/api/privacy/delete-account',requireUser,(req,res)=>{
+app.post('/api/privacy/delete-account',deleteAccountLimit,requireUser,(req,res)=>{
   const u=db.prepare("SELECT * FROM users WHERE id=? AND COALESCE(account_status,'active')='active'").get(req.userId);
   if(!u||!verifyPassword(String(req.body?.password||''),u.password_salt,u.password_hash))return res.status(403).json({error:'Passwortbestätigung erforderlich.'});
   const result=deleteAccountData(db,req.userId,{privateUploadDir,publicUploadDir:uploadDir});

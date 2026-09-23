@@ -12,7 +12,9 @@ const {
   openOwnedCommunity,
   openVisibleOtherPerson,
   blockOpenPerson,
-  downloadPrivacyExport
+  downloadPrivacyExport,
+  openAccountDeletion,
+  submitAccountDeletion
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -290,6 +292,46 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#notificationCount')).toBeHidden();
     await page.locator('#closeModal').click();
     await expect(page.locator('.friendship-state')).toContainText('Befreundet');
+  });
+
+  test('Kontolöschung zeigt Folgen, erlaubt Abbruch und verlangt das aktuelle Passwort', async ({ browser }) => {
+    // Lisa is the destructive desktop fixture. Anna must remain available for the later
+    // mobile block/unblock flow; Max is deleted only by the final mobile Gold test.
+    const context = await browser.newContext({
+      baseURL: 'http://127.0.0.1:3100',
+      viewport: { width: 1440, height: 1000 },
+      storageState: { cookies: [], origins: [] }
+    });
+    try {
+      const account = await context.newPage();
+      const guard = captureRuntimeFailures(account);
+      await waitForApp(account);
+      await openIdentity(account);
+      await account.locator('#loginEmail').fill('lisa@bottomupparti.local');
+      await account.locator('#loginPassword').fill('demo123');
+      await account.locator('#login').click();
+      await expect(account.locator('#userName')).toHaveText('Lisa');
+
+      await openAccountDeletion(account);
+      await account.locator('#cancelDeleteAccount').click();
+      await expect(account.locator('#openDeleteAccount')).toBeVisible();
+      await expect(account.locator('#userName')).toHaveText('Lisa');
+
+      await account.locator('#openDeleteAccount').click();
+      const rejected = await submitAccountDeletion(account, 'falsches-passwort');
+      expect((await rejected).status()).toBe(403);
+      await expect(account.locator('#deleteAccountError')).toHaveText('Passwortbestätigung erforderlich.');
+      await expect(account.locator('#userName')).toHaveText('Lisa');
+
+      const deleted = await submitAccountDeletion(account, 'demo123');
+      expect((await deleted).status()).toBe(200);
+      await expect(account.locator('#userName')).toHaveText('Nicht angemeldet');
+      await expect(account.locator('#modalContent')).toContainText('Konto gelöscht');
+      await expect(account.locator('#modalContent')).toContainText('föderierte Remote-Kopien');
+      guard.assertClean();
+    } finally {
+      await context.close();
+    }
   });
 });
 

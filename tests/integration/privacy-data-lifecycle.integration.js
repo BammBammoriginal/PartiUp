@@ -70,6 +70,9 @@ function assert(ok,msg){if(!ok)throw new Error(msg);console.log('✓ '+msg)}
   assert(exp.data.federation.actor_key.private_key_exported===false && !JSON.stringify(exp.data).includes('PRIVATE-QA'),'export accounts for federation key without leaking private key');
   assert(exp.data.schema_inventory.some(x=>x.table==='private_media'),'export includes schema-level personal-data inventory');
 
+  const rejected=await req(j,'POST','/api/privacy/delete-account',{password:'wrong-password'});assert(rejected.status===403,'account deletion rejects an incorrect password');
+  assert(sql.prepare("SELECT account_status FROM users WHERE id=?").get('u-max').account_status==='active','failed password confirmation leaves account active');
+  assert(sql.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get('u-max').n===1,'failed password confirmation preserves the active session');
   const del=await req(j,'POST','/api/privacy/delete-account',{password:'demo123'});assert(del.status===200,'account deletion succeeds');
   const u=sql.prepare('SELECT * FROM users WHERE id=?').get('u-max');assert(u.account_status==='deleted'&&u.bio===''&&u.place_id===null&&u.trust_level===0,'identity is tombstoned and profile data cleared');
   assert(sql.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get('u-max').n===0,'sessions deleted');

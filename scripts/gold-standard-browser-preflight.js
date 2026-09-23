@@ -7,7 +7,9 @@ const auth = fs.readFileSync('tests/auth.setup.js', 'utf8');
 const helper = fs.readFileSync('tests/helpers/gold.js', 'utf8');
 const appHelper = fs.readFileSync('tests/helpers/app.js', 'utf8');
 const app = fs.readFileSync('public/app.js', 'utf8');
+const server = fs.readFileSync('server/server.js', 'utf8');
 const regressions = fs.readFileSync('tests/integration/gold-regressions.integration.js', 'utf8');
+const privacyLifecycle = fs.readFileSync('tests/integration/privacy-data-lifecycle.integration.js', 'utf8');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const all = `${desktop}\n${mobile}\n${helper}`;
 
@@ -60,7 +62,11 @@ const checks = [
   ['privacy export uses a real browser download on desktop and mobile', /waitForEvent\('download'\)/.test(helper) && /Datenschutzexport über das persönliche Privacy-Center/.test(desktop) && /Datenschutzexport mobil erreichbar/.test(mobile)],
   ['privacy export verifies filename, ownership and secret exclusion', /partiup-meine-daten\.json/.test(helper) && /account\?\.id/.test(helper) && /password_hash/.test(helper) && /private_key_pem/.test(helper)],
   ['privacy export API regression covers authentication and secret exclusion', /Privacy export requires authentication/.test(regressions) && /Own privacy export is available/.test(regressions) && /excludes authentication and private-key secrets/.test(regressions)],
-  ['account deletion remains a separate gated tranche', /Eine Kontolöschung wird hierdurch nicht ausgelöst/.test(app) && !/id="deleteAccount"/.test(app)],
+  ['account deletion UI requires consequence preview, acknowledgement, password and cancel', /id="openDeleteAccount"/.test(app) && /id="deleteAccountPassword"/.test(app) && /id="deleteAccountAcknowledge"/.test(app) && /id="cancelDeleteAccount"/.test(app) && /Fediverse-Server/.test(app)],
+  ['account deletion has complete desktop and mobile browser flows', /Kontolöschung zeigt Folgen, erlaubt Abbruch/.test(desktop) && /Kontolöschung bleibt mobil vollständig kontrollierbar/.test(mobile) && /async function submitAccountDeletion/.test(helper)],
+  ['destructive account fixtures preserve later cross-project safety flows', /lisa@bottomupparti\.local/.test(desktop) && /Anna must remain available for the later\s*\/\/ mobile block\/unblock flow/.test(desktop)],
+  ['destructive mobile account deletion remains the final mobile gold case', mobile.lastIndexOf("test('Kontolöschung bleibt mobil") === mobile.lastIndexOf('test(')],
+  ['account deletion API rejects wrong password and is separately rate limited', /incorrect password|falsches Passwort|wrong password/i.test(privacyLifecycle) && /failed password confirmation preserves the active session/.test(privacyLifecycle) && /deleteAccountLimit/.test(server)],
   ['notification browser checks real cross-session friendship and unread badge', /Benachrichtigung lesen aktualisiert Liste und Zähler/.test(desktop) && /anna@bottomupparti\.local/.test(desktop) && /data-friend-accept/.test(desktop) && /#notificationCount/.test(desktop)],
   ['notification mobile modal checks narrow viewport', /Benachrichtigungsliste und Zähler bleiben mobil bedienbar/.test(mobile) && /assertNoHorizontalOverflow/.test(mobile)]
 ];
