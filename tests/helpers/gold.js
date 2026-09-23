@@ -165,6 +165,29 @@ async function downloadPrivacyExport(page) {
   return data;
 }
 
+async function openAccountDeletion(page) {
+  await openIdentity(page);
+  await expect(page.locator('#openDeleteAccount'), 'Kontolöschung ist im persönlichen Privacy-Center nicht erreichbar').toBeVisible();
+  await page.locator('#openDeleteAccount').click();
+  await expect(page.locator('#deleteAccountTitle')).toHaveText('Konto endgültig löschen');
+  for (const consequence of ['Anmeldedaten', 'Mitgliedschaften', 'anonymisiert', 'Moderationsnachweise', 'Fediverse-Server']) {
+    await expect(page.locator('.privacy-account-deletion')).toContainText(consequence);
+  }
+  await expect(page.locator('#deleteAccount')).toBeDisabled();
+}
+
+async function submitAccountDeletion(page, password) {
+  await page.locator('#deleteAccountPassword').fill(password);
+  await page.locator('#deleteAccountAcknowledge').check();
+  await expect(page.locator('#deleteAccount')).toBeEnabled();
+  const response = page.waitForResponse(result =>
+    result.url().endsWith('/api/privacy/delete-account') &&
+    result.request().method() === 'POST'
+  );
+  await page.locator('#deleteAccount').click();
+  return response;
+}
+
 module.exports = {
   expect,
   waitForApp,
@@ -182,5 +205,7 @@ module.exports = {
   openOwnedCommunity,
   openVisibleOtherPerson,
   blockOpenPerson,
-  downloadPrivacyExport
+  downloadPrivacyExport,
+  openAccountDeletion,
+  submitAccountDeletion
 };

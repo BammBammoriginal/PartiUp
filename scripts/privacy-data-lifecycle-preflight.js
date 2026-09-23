@@ -12,6 +12,7 @@ const checks=[
  ['Crash recovery processes deletion queue at startup',server.includes('processPrivacyFileDeletionQueue')&&server.includes('Privacy file deletion recovery')],
  ['Shared messages are redacted not cascaded',privacy.includes("UPDATE messages SET body=?")&&privacy.includes('conversation_members WHERE user_id=?')],
  ['Other participant preservation covered by integration test',test.includes('other participant message preserved')&&test.includes('other participant public comment preserved')],
+ ['Deletion requires password and failed confirmation preserves account/session',server.includes("verifyPassword(String(req.body?.password||'')")&&server.includes('deleteAccountLimit')&&test.includes('account deletion rejects an incorrect password')&&test.includes('failed password confirmation preserves the active session')],
  ['Account tombstone prevents relogin',db.includes("account_status")&&server.includes("account_status,'active')='active'" )],
  ['Deleted actors cannot be regenerated',protocol.includes("account_status,'active')='active'")&&store.includes("entityType==='user'")],
  ['Filesystem residual test exists',test.includes('physical file deleted')&&test.includes('physical variants deleted')&&test.includes('file deletion queue drained successfully')]

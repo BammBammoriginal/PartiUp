@@ -12,7 +12,9 @@ const {
   openOwnedCommunity,
   openVisibleOtherPerson,
   blockOpenPerson,
-  downloadPrivacyExport
+  downloadPrivacyExport,
+  openAccountDeletion,
+  submitAccountDeletion
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -151,5 +153,19 @@ test.describe('Goldstandard Mobile 412x915', () => {
       await page.locator('#readAll').click();
       await expect(page.locator('#notificationCount')).toBeHidden();
     }
+  });
+
+  test('Kontolöschung bleibt mobil vollständig kontrollierbar', async ({ page }) => {
+    await openAccountDeletion(page);
+    await assertNoHorizontalOverflow(page);
+    await page.locator('#cancelDeleteAccount').click();
+    await expect(page.locator('#openDeleteAccount')).toBeVisible();
+
+    await page.locator('#openDeleteAccount').click();
+    const deleted = await submitAccountDeletion(page, 'demo123');
+    expect((await deleted).status()).toBe(200);
+    await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');
+    await expect(page.locator('#modalContent')).toContainText('Konto gelöscht');
+    await assertNoHorizontalOverflow(page);
   });
 });
