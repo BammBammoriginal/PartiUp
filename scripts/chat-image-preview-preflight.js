@@ -23,8 +23,8 @@ const checks = [
   ['image endpoint applies block policy before private persistence', imageRoute >= 0 && blockGuard > imageRoute && persistence > blockGuard],
   ['unsupported private image produces an explicit client error', /Bitte ein unterstütztes Bild auswählen/.test(server)],
   ['browser fixture is an in-memory image, not a public test upload', /const chatImageFixture/.test(helper) && /setInputFiles/.test(helper) && /toHaveAttribute\('src', \/\^blob:\/\)/.test(helper)],
-  ['desktop proves no upload before send, removal and persistence', /Chatbild lokal prüfen, entfernen und erst beim Senden übertragen/.test(desktop) && /expect\(uploads\)\.toHaveLength\(0\)/.test(desktop) && /private-message-image/.test(desktop)],
-  ['mobile proves no upload before send, removal, persistence and bounded layout', /Chatbild mobil lokal prüfen, entfernen und bewusst senden/.test(mobile) && /expect\(uploads\)\.toHaveLength\(0\)/.test(mobile) && /assertNoHorizontalOverflow/.test(mobile)],
+  ['desktop proves no upload before send, removal and exact-media persistence', /Chatbild lokal prüfen, entfernen und erst beim Senden übertragen/.test(desktop) && /expect\(uploads\)\.toHaveLength\(0\)/.test(desktop) && /sent\.media\?\.\[0\]\?\.url/.test(desktop)],
+  ['mobile proves no upload before send, removal, exact-media persistence and bounded layout', /Chatbild mobil lokal prüfen, entfernen und bewusst senden/.test(mobile) && /expect\(uploads\)\.toHaveLength\(0\)/.test(mobile) && /sent\.media\?\.\[0\]\?\.url/.test(mobile) && /assertNoHorizontalOverflow/.test(mobile)],
   ['API regression rejects unsupported and blocked images without orphan media', /Unsupported private image type is rejected server-side/.test(regression) && /Blocking prevents private image messages just like text messages/.test(regression) && /creates no orphaned private media/.test(regression)]
 ];
 
