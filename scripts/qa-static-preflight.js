@@ -1,4 +1,5 @@
 const fs=require('fs');
+require('./chat-image-preview-preflight');
 const path=require('path');
 const root=path.join(__dirname,'..');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));

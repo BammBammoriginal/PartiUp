@@ -14,7 +14,8 @@ const {
   blockOpenPerson,
   downloadPrivacyExport,
   openAccountDeletion,
-  submitAccountDeletion
+  submitAccountDeletion,
+  selectChatImage
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -117,6 +118,41 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await go(page, 'messages');
     await page.locator('#conversationList [data-conversation]').first().click();
     await expect(page.locator('#messageThread')).toContainText(message);
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test('Chatbild mobil lokal prüfen, entfernen und bewusst senden', async ({ page }) => {
+    const uploads = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && /\/api\/messages\/conversations\/[^/]+\/images$/.test(request.url())) uploads.push(request.url());
+    });
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    await page.locator('#conversationPeople').selectOption(recipient);
+    await page.locator('#saveConversation').click();
+
+    await selectChatImage(page, 'mobil-vorschau.png');
+    expect(uploads).toHaveLength(0);
+    await assertNoHorizontalOverflow(page);
+    await page.locator('#removeMessageImage').click();
+    await expect(page.locator('#messageImagePreview')).toBeHidden();
+    expect(uploads).toHaveLength(0);
+
+    await selectChatImage(page, 'mobil-versand.png');
+    const uploaded = page.waitForResponse(response => /\/api\/messages\/conversations\/[^/]+\/images$/.test(response.url()) && response.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    const uploadResponse = await uploaded;
+    expect(uploadResponse.status()).toBe(201);
+    const sent = await uploadResponse.json();
+    expect(sent.media?.[0]?.url).toMatch(/^\/api\/private-media\/pm-/);
+    const sentImage = () => page.locator(`#messageThread .private-message-image[src="${sent.media[0].url}"]`);
+    expect(uploads).toHaveLength(1);
+    await expect(sentImage()).toBeVisible();
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator('#conversationList [data-conversation]').first().click();
+    await expect(sentImage()).toBeVisible();
     await assertNoHorizontalOverflow(page);
   });
 

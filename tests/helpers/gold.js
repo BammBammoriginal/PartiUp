@@ -188,6 +188,23 @@ async function submitAccountDeletion(page, password) {
   return response;
 }
 
+const chatImageFixture = {
+  name: 'partiup-chatbild.png',
+  mimeType: 'image/png',
+  buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64')
+};
+
+async function selectChatImage(page, name = chatImageFixture.name) {
+  await page.locator('#messageImage').setInputFiles({ ...chatImageFixture, name });
+  const preview = page.locator('#messageImagePreview');
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText(name);
+  await expect(preview).toContainText('wird erst beim Senden übertragen');
+  await expect(preview.locator('img')).toHaveAttribute('src', /^blob:/);
+  await expect(page.locator('#removeMessageImage')).toBeVisible();
+  return preview;
+}
+
 module.exports = {
   expect,
   waitForApp,
@@ -207,5 +224,6 @@ module.exports = {
   blockOpenPerson,
   downloadPrivacyExport,
   openAccountDeletion,
-  submitAccountDeletion
+  submitAccountDeletion,
+  selectChatImage
 };
