@@ -2,6 +2,8 @@
 
 Stand: 24. September 2026
 
+Status: **Gold – automatisiert und visuell freigegeben**
+
 ## Anlass
 
 Die technische Chatbild-Vorschau aus P0.16.26 funktionierte, eine reale Sichtprüfung zeigte jedoch eine nicht abnahmefähige Darstellung: Große Bilder dominierten den Nachrichtenbereich, während Unterhaltungsliste, Thread, Metadaten und Eingabe keine eigene belastbare Layouthierarchie hatten.
@@ -30,4 +32,5 @@ Die technische Chatbild-Vorschau aus P0.16.26 funktionierte, eine reale Sichtpr�
 - Goldstandard-Browser-Preflight wurde von 53 auf 56 Invarianten erweitert.
 - Desktop verwendet ein reales Hochformatbild und prüft Pixelgrenzen, Seitenverhältnis, Spaltenanordnung und Großansicht.
 - Mobile verwendet ein reales Querformatbild und prüft Pixelgrenzen, Seitenverhältnis, Großansicht, Listen-/Threadwechsel und horizontalen Überlauf.
-- Der vollständige isolierte GitHub-Chromium-Lauf bleibt Freigabevoraussetzung.
+- Der isolierte GitHub-Chromium-Lauf bestand Chatbild-Preflight 18/18, Goldstandard-Browser-Preflight 56/56, Gold-Regressionen und 31/31 reale Desktop-/Mobile-Browserfälle.
+- Die anschließende reale Sichtprüfung der Chatdarstellung wurde am 24. September 2026 vom Nutzer ausdrücklich freigegeben.
