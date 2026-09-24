@@ -1,4 +1,5 @@
 const { expect } = require('@playwright/test');
+const sharp = require('sharp');
 const { waitForApp, loginAsMax, go, assertNoHorizontalOverflow } = require('./app');
 
 function uniqueName(prefix) {
@@ -194,8 +195,22 @@ const chatImageFixture = {
   buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64')
 };
 
-async function selectChatImage(page, name = chatImageFixture.name) {
-  await page.locator('#messageImage').setInputFiles({ ...chatImageFixture, name });
+async function selectChatImage(page, name = chatImageFixture.name, dimensions = null) {
+  const fixture = dimensions
+    ? {
+        name,
+        mimeType: 'image/png',
+        buffer: await sharp({
+          create: {
+            width: dimensions.width,
+            height: dimensions.height,
+            channels: 4,
+            background: dimensions.background || '#8bc8b3'
+          }
+        }).png().toBuffer()
+      }
+    : { ...chatImageFixture, name };
+  await page.locator('#messageImage').setInputFiles(fixture);
   const preview = page.locator('#messageImagePreview');
   await expect(preview).toBeVisible();
   await expect(preview).toContainText(name);
@@ -203,6 +218,32 @@ async function selectChatImage(page, name = chatImageFixture.name) {
   await expect(preview.locator('img')).toHaveAttribute('src', /^blob:/);
   await expect(page.locator('#removeMessageImage')).toBeVisible();
   return preview;
+}
+
+async function assertChatMediaLayout(page, image, { maxWidth = 480, maxHeight = 360, expectedRatio = null } = {}) {
+  await expect(image).toBeVisible();
+  await expect(image).toHaveCSS('object-fit', 'contain');
+  const imageBox = await image.boundingBox();
+  const bubbleBox = await image.locator('xpath=ancestor::article[contains(@class,"message-bubble")]').boundingBox();
+  const threadBox = await page.locator('#messageThread').boundingBox();
+  expect(imageBox, 'Chatbild hat keine messbare Darstellung').toBeTruthy();
+  expect(bubbleBox, 'Chatbild liegt nicht in einer Nachrichtenblase').toBeTruthy();
+  expect(threadBox, 'Nachrichtenbereich hat keine messbare Darstellung').toBeTruthy();
+  expect(imageBox.width).toBeLessThanOrEqual(maxWidth + 1);
+  expect(imageBox.height).toBeLessThanOrEqual(maxHeight + 1);
+  expect(imageBox.width).toBeLessThanOrEqual(bubbleBox.width + 1);
+  expect(bubbleBox.width).toBeLessThanOrEqual(threadBox.width + 1);
+  if (expectedRatio) expect(Math.abs((imageBox.width / imageBox.height) - expectedRatio)).toBeLessThan(0.03);
+  await expect(page.locator('#messageComposer')).toBeVisible();
+}
+
+async function openAndCloseChatMediaViewer(page, image) {
+  await image.click();
+  const viewer = page.locator('#messageMediaViewer');
+  await expect(viewer).toHaveAttribute('open', '');
+  await expect(viewer.locator('img')).toHaveAttribute('src', await image.getAttribute('src'));
+  await viewer.locator('[data-close-message-media]').click();
+  await expect(viewer).not.toHaveAttribute('open', '');
 }
 
 module.exports = {
@@ -225,5 +266,7 @@ module.exports = {
   downloadPrivacyExport,
   openAccountDeletion,
   submitAccountDeletion,
-  selectChatImage
+  selectChatImage,
+  assertChatMediaLayout,
+  openAndCloseChatMediaViewer
 };

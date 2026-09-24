@@ -15,7 +15,9 @@ const {
   downloadPrivacyExport,
   openAccountDeletion,
   submitAccountDeletion,
-  selectChatImage
+  selectChatImage,
+  assertChatMediaLayout,
+  openAndCloseChatMediaViewer
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -139,7 +141,7 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await expect(page.locator('#messageImagePreview')).toBeHidden();
     expect(uploads).toHaveLength(0);
 
-    await selectChatImage(page, 'mobil-versand.png');
+    await selectChatImage(page, 'mobil-querformat.png', { width: 1280, height: 720, background: '#dff2eb' });
     const uploaded = page.waitForResponse(response => /\/api\/messages\/conversations\/[^/]+\/images$/.test(response.url()) && response.request().method() === 'POST');
     await page.locator('#messageComposer button[type="submit"]').click();
     const uploadResponse = await uploaded;
@@ -149,10 +151,19 @@ test.describe('Goldstandard Mobile 412x915', () => {
     const sentImage = () => page.locator(`#messageThread .private-message-image[src="${sent.media[0].url}"]`);
     expect(uploads).toHaveLength(1);
     await expect(sentImage()).toBeVisible();
+    await assertChatMediaLayout(page, sentImage(), { maxWidth: 340, maxHeight: 280, expectedRatio: 1280 / 720 });
+    await openAndCloseChatMediaViewer(page, sentImage());
+    await expect(page.locator('#backToConversations')).toBeVisible();
+    await page.locator('#backToConversations').click();
+    await expect(page.locator('#conversationList')).toBeVisible();
+    await expect(page.locator('#messageThread')).toBeHidden();
+    await page.locator('#conversationList [data-conversation]').first().click();
+    await expect(sentImage()).toBeVisible();
     await page.reload();
     await go(page, 'messages');
     await page.locator('#conversationList [data-conversation]').first().click();
     await expect(sentImage()).toBeVisible();
+    await assertChatMediaLayout(page, sentImage(), { maxWidth: 340, maxHeight: 280, expectedRatio: 1280 / 720 });
     await assertNoHorizontalOverflow(page);
   });
 

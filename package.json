@@ -1,6 +1,6 @@
 {
   "name": "partiup-local-dev",
-  "version": "0.16.26",
+  "version": "0.16.27",
   "private": true,
   "description": "PartiUp P0.16 – relationship-driven places, topics and discovery contexts without algorithmic ranking",
   "main": "server/server.js",

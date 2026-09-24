@@ -15,7 +15,9 @@ const {
   downloadPrivacyExport,
   openAccountDeletion,
   submitAccountDeletion,
-  selectChatImage
+  selectChatImage,
+  assertChatMediaLayout,
+  openAndCloseChatMediaViewer
 } = require('../helpers/gold');
 
 test.setTimeout(30_000);
@@ -233,7 +235,7 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     expect(await page.locator('#messageImage').evaluate(input => input.files.length)).toBe(0);
     expect(uploads).toHaveLength(0);
 
-    await selectChatImage(page, 'desktop-versand.png');
+    await selectChatImage(page, 'desktop-hochformat.png', { width: 720, height: 1280, background: '#8bc8b3' });
     const uploaded = page.waitForResponse(response => /\/api\/messages\/conversations\/[^/]+\/images$/.test(response.url()) && response.request().method() === 'POST');
     await page.locator('#messageComposer button[type="submit"]').click();
     const uploadResponse = await uploaded;
@@ -243,10 +245,16 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     const sentImage = () => page.locator(`#messageThread .private-message-image[src="${sent.media[0].url}"]`);
     expect(uploads).toHaveLength(1);
     await expect(sentImage()).toBeVisible();
+    await assertChatMediaLayout(page, sentImage(), { expectedRatio: 720 / 1280 });
+    const listBox = await page.locator('#conversationList').boundingBox();
+    const threadBox = await page.locator('#messageThread').boundingBox();
+    expect(listBox.x + listBox.width).toBeLessThanOrEqual(threadBox.x + 1);
+    await openAndCloseChatMediaViewer(page, sentImage());
     await page.reload();
     await go(page, 'messages');
     await page.locator('#conversationList [data-conversation]').first().click();
     await expect(sentImage()).toBeVisible();
+    await assertChatMediaLayout(page, sentImage(), { expectedRatio: 720 / 1280 });
   });
 
   test('Projektrolle wird aus dem übergeordneten Space sicher abgeleitet', async ({ page }) => {

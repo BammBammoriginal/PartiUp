@@ -7,6 +7,7 @@ const auth = fs.readFileSync('tests/auth.setup.js', 'utf8');
 const helper = fs.readFileSync('tests/helpers/gold.js', 'utf8');
 const appHelper = fs.readFileSync('tests/helpers/app.js', 'utf8');
 const app = fs.readFileSync('public/app.js', 'utf8');
+const css = fs.readFileSync('public/style.css', 'utf8');
 const server = fs.readFileSync('server/server.js', 'utf8');
 const regressions = fs.readFileSync('tests/integration/gold-regressions.integration.js', 'utf8');
 const privacyLifecycle = fs.readFileSync('tests/integration/privacy-data-lifecycle.integration.js', 'utf8');
@@ -46,6 +47,9 @@ const checks = [
   ['place selector and combined context', /#discoverLocalPlace/.test(desktop) && /data-context-place-filter/.test(desktop)],
   ['place/topic/community/person navigation', /Vernetzte Navigation über Ort, Thema, Community, Person/.test(desktop)],
   ['message persistence flow', /Nachricht senden und nach Reload/.test(all)],
+  ['chat media is bounded without cropping or aspect-ratio loss', /assertChatMediaLayout/.test(helper) && /expectedRatio/.test(helper) && /object-fit:contain/.test(css) && /max-height:360px/.test(css)],
+  ['chat media has an accessible explicit large viewer', /openAndCloseChatMediaViewer/.test(helper) && /id="messageMediaViewer"/.test(app) && /data-close-message-media/.test(app)],
+  ['mobile chat switches between list and focused thread', /#backToConversations/.test(mobile) && /has-active-thread/.test(app) && /messages-layout\.has-active-thread \.conversation-list\{display:none\}/.test(css)],
   ['mobile drawer/backdrop/bottom navigation', /#mobileMore/.test(mobile) && /#navBackdrop/.test(mobile) && /mobile-bottom-nav/.test(mobile)],
   ['horizontal overflow guard', /assertNoHorizontalOverflow/.test(mobile)],
   ['gold command enforces its preflight first', /^npm run qa:gold:preflight\s*&&/.test(pkg.scripts['qa:gold'] || '')],
