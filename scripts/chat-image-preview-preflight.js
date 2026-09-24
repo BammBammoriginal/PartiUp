@@ -20,11 +20,16 @@ const checks = [
   ['preview states that transfer starts only on send', /wird erst beim Senden übertragen/.test(app)],
   ['selected chat image can be removed before send', /id="removeMessageImage"/.test(app) && /clearMessageImageSelection/.test(app)],
   ['preview reuses the responsive composer image component', /id="messageImagePreview" class="composer-image-preview"/.test(app) && /@media\(max-width:620px\)\{\.composer-image-preview-card/.test(css)],
+  ['sent chat media keeps its ratio inside explicit desktop and mobile bounds', /\.private-message-image\{[^}]*width:auto[^}]*max-width:min\(100%,480px\)[^}]*height:auto[^}]*max-height:360px[^}]*object-fit:contain/.test(css) && /max-width:min\(100%,340px\);max-height:280px/.test(css)],
+  ['chat media opens only through an accessible explicit viewer action', /class="private-message-media"/.test(app) && /id="messageMediaViewer"/.test(app) && /showModal/.test(app) && /data-close-message-media/.test(app)],
+  ['desktop and mobile use one message structure with a focused mobile thread', /grid-template-columns:minmax\(240px,310px\)/.test(css) && /messages-layout\.has-active-thread \.conversation-list\{display:none\}/.test(css) && /id="backToConversations"/.test(app)],
   ['image endpoint applies block policy before private persistence', imageRoute >= 0 && blockGuard > imageRoute && persistence > blockGuard],
   ['unsupported private image produces an explicit client error', /Bitte ein unterstütztes Bild auswählen/.test(server)],
   ['browser fixture is an in-memory image, not a public test upload', /const chatImageFixture/.test(helper) && /setInputFiles/.test(helper) && /toHaveAttribute\('src', \/\^blob:\/\)/.test(helper)],
   ['desktop proves no upload before send, removal and exact-media persistence', /Chatbild lokal prüfen, entfernen und erst beim Senden übertragen/.test(desktop) && /expect\(uploads\)\.toHaveLength\(0\)/.test(desktop) && /sent\.media\?\.\[0\]\?\.url/.test(desktop)],
   ['mobile proves no upload before send, removal, exact-media persistence and bounded layout', /Chatbild mobil lokal prüfen, entfernen und bewusst senden/.test(mobile) && /expect\(uploads\)\.toHaveLength\(0\)/.test(mobile) && /sent\.media\?\.\[0\]\?\.url/.test(mobile) && /assertNoHorizontalOverflow/.test(mobile)],
+  ['browser coverage uses real portrait and landscape images with ratio assertions', /width: 720, height: 1280/.test(desktop) && /width: 1280, height: 720/.test(mobile) && /expectedRatio/.test(helper) && /assertChatMediaLayout/.test(desktop + mobile)],
+  ['browser coverage exercises media viewer and mobile list-thread navigation', /openAndCloseChatMediaViewer/.test(desktop) && /openAndCloseChatMediaViewer/.test(mobile) && /#backToConversations/.test(mobile) && /#messageThread'\)\)\.toBeHidden/.test(mobile)],
   ['API regression rejects unsupported and blocked images without orphan media', /Unsupported private image type is rejected server-side/.test(regression) && /Blocking prevents private image messages just like text messages/.test(regression) && /creates no orphaned private media/.test(regression)]
 ];
 
