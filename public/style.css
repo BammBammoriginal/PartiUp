@@ -338,3 +338,9 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{min-width:320px;o
 #discover,.discover-browse,.discover-head,.discover-local-context,.discover-context-overview,.discover-context-summary,#discover-list,#discover-list>*{min-width:0;max-width:100%}
 #discover-list b,#discover-list h3,#discover-list h4,#discover-list p,.discover-context-summary h3,.discover-context-summary p{overflow-wrap:anywhere}
 @media(max-width:700px){#discover .context-link-chip{max-width:100%;white-space:normal;text-align:left}.discover-local-context>*,.discover-context-summary>*{min-width:0;max-width:100%}}
+
+/* Shared place context for directly navigable spatial overviews. */
+.shared-place-context{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,330px);gap:18px;align-items:end;margin:0 0 18px;padding:16px 18px;border:1px solid #aad6c5;border-radius:14px;background:linear-gradient(135deg,#e7f5ef,#f8fcfa)}
+.shared-place-context>div{display:grid;gap:3px;min-width:0}.shared-place-context small{font-weight:800;letter-spacing:.07em;color:var(--accent)}.shared-place-context strong{font-size:1.45rem}.shared-place-context span{font-size:.84rem;color:var(--muted);line-height:1.4}.shared-place-context label{display:grid;gap:5px;min-width:0;font-weight:700}.shared-place-context select{width:100%;min-height:44px;background:#fff;border-color:#92c8b3}
+.app-sidebar .place{display:grid;gap:8px}.app-sidebar .place label{display:block}.app-sidebar .place label span{margin-left:0}.app-sidebar .place select{width:100%;min-width:0;min-height:44px;background:var(--sidebar-bg);border-color:#719b8c;color:#fff;cursor:pointer}.app-sidebar .place select option{background:#fff;color:#142b24}
+@media(max-width:800px){.shared-place-context{grid-template-columns:1fr;padding:14px;gap:10px}}

@@ -66,7 +66,7 @@ async function openCreation(page, type) {
 }
 
 async function chooseFirst(page, name) {
-  const input = page.locator(`input[name="${name}"]`).first();
+  const input = name === 'place' ? page.locator('input[name="place"][value="erl"]') : page.locator(`input[name="${name}"]`).first();
   if (await input.count()) await input.check();
 }
 

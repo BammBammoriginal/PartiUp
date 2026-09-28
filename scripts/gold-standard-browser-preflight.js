@@ -45,6 +45,7 @@ const checks = [
   ['community-space creation flows', /#createSpaceEvent/.test(desktop) && /#createSpaceProject/.test(desktop) && /#createSpaceParticipation/.test(desktop)],
   ['subspace flow', /#createSubspace/.test(desktop)],
   ['place selector and combined context', /#discoverLocalPlace/.test(desktop) && /data-context-place-filter/.test(desktop)],
+  ['shared place selector has real desktop and mobile navigation flows', /Gemeinsamer Ebenenwähler aktualisiert alle räumlichen Übersichten/.test(desktop) && /Gemeinsamer Ebenenwähler funktioniert im mobilen Drawer/.test(mobile) && /#sidebarPlaceSelect/.test(desktop + mobile) && /value="all"/.test(app)],
   ['place/topic/community/person navigation', /Vernetzte Navigation über Ort, Thema, Community, Person/.test(desktop)],
   ['message persistence flow', /Nachricht senden und nach Reload/.test(all)],
   ['chat media is bounded without cropping or aspect-ratio loss', /assertChatMediaLayout/.test(helper) && /expectedRatio/.test(helper) && /object-fit:contain/.test(css) && /max-height:360px/.test(css)],

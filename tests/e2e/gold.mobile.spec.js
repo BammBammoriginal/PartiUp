@@ -106,6 +106,25 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await assertNoHorizontalOverflow(page);
   });
 
+  test('Gemeinsamer Ebenenwähler funktioniert im mobilen Drawer und in Space-Listen', async ({ page }) => {
+    await go(page, 'events');
+    await page.locator('#mobileMore').click();
+    const navigationSelect = page.locator('#sidebarPlaceSelect');
+    await expect(navigationSelect).toBeInViewport();
+    await navigationSelect.selectOption('all');
+    await expect(page.locator('#sidebarPlaceName')).toHaveText('Alle Ebenen');
+    await closeMobileDrawer(page);
+    await expect(page.locator('#events [data-shared-place-select]')).toHaveValue('all');
+    await page.locator('#events [data-shared-place-select]').selectOption('nue');
+    await expect(page.locator('#events-list')).not.toContainText('Repair-Café');
+    await go(page, 'participation');
+    await expect(page.locator('#participation [data-shared-place-select]')).toHaveValue('nue');
+    await page.locator('#participation [data-shared-place-select]').selectOption('by');
+    await expect(page.locator('#participation-list')).toContainText('Verkehrskonzept Bayern');
+    await expect(page.locator('#participation-list')).toContainText('Stadtentwicklung 2035');
+    await assertNoHorizontalOverflow(page);
+  });
+
   test('Nachricht mobil senden und nach Reload wiederfinden', async ({ page }) => {
     const message = uniqueName('Mobile Nachricht');
     await go(page, 'messages');

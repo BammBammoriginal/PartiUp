@@ -2,7 +2,7 @@
 
 Stand: 28. September 2026
 
-Status: **Release Candidate – isolierte Browserabnahme ausstehend**
+Status bei Erstellung: **Release Candidate**. Nachtrag: isolierter GitHub-Browserlauf 33/33 bestanden; der Nutzer bestätigte die Nachrichtenlöschung bei manueller Prüfung.
 
 ## R6c – eigene Nachrichten für alle löschen
 

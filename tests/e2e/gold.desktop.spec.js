@@ -184,6 +184,46 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#topic-grid .topic-detail')).toBeVisible();
   });
 
+  test('Gemeinsamer Ebenenwähler aktualisiert alle räumlichen Übersichten ohne private Chats zu filtern', async ({ page }) => {
+    await go(page, 'events');
+    const events = page.locator('#events [data-shared-place-select="events"]');
+    await expect(events).toBeVisible();
+    await expect(events.locator('option[value="all"]')).toHaveText('Alle Ebenen');
+    await expect(page.locator('#events-list')).toContainText('Repair-Café');
+    await events.selectOption('de');
+    await expect(page.locator('#events-list')).toContainText('Repair-Café');
+    await expect(page.locator('#events-list')).toContainText('Bundesweiter Aktionstag Fahrrad');
+    await expect(page.locator('#sidebarPlaceSelect')).toHaveValue('de');
+
+    await go(page, 'participation');
+    await expect(page.locator('#participation [data-shared-place-select]')).toHaveValue('de');
+    await expect(page.locator('#participation-list')).toContainText('Bundestag: Mobilitätsdatengesetz');
+    await page.locator('#participation [data-shared-place-select]').selectOption('nue');
+    await expect(page.locator('#participation-list')).not.toContainText('Bundestag: Mobilitätsdatengesetz');
+    await go(page, 'projects');
+    await expect(page.locator('#projects [data-shared-place-select]')).toHaveValue('nue');
+    await expect(page.locator('#projects-list')).not.toContainText('Sicherer Radweg Bahnhof');
+    await go(page, 'topics');
+    await expect(page.locator('#topic-grid')).not.toContainText('Kultur');
+    await go(page, 'people');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('nue');
+    await expect(page.locator('#people-list')).not.toContainText('Anna');
+    await page.locator('#people [data-shared-place-select]').selectOption('all');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('all');
+    await expect(page.locator('#people-list')).toContainText('Anna');
+    await page.reload();
+    await go(page, 'people');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('all');
+    await go(page, 'communities');
+    await expect(page.locator('#communities-list')).toContainText('Deutscher Sportbund');
+    await go(page, 'places');
+    await expect(page.locator('#place-results')).toContainText('Deutscher Sportbund');
+    await expect(page.locator('#place-results')).toContainText('Repair-Café');
+    await go(page, 'messages');
+    await expect(page.locator('#createConversation')).toBeVisible();
+    await expect(page.locator('#messages [data-shared-place-select]')).toHaveCount(0);
+  });
+
   test('Vernetzte Navigation über Ort, Thema, Community, Person und Hauptlisten', async ({ page }) => {
     await go(page, 'places');
     await page.locator('[data-place]').first().click();
