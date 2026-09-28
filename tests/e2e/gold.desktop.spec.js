@@ -257,6 +257,68 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await assertChatMediaLayout(page, sentImage(), { expectedRatio: 720 / 1280 });
   });
 
+  test('Eigene Nachricht für alle löschen, fremde Nachricht unverändert schützen', async ({ page, browser }) => {
+    const ownText = uniqueName('Zu löschende Nachricht');
+    const incomingText = uniqueName('Fremde Nachricht');
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    await expect(page.locator('#conversationPeople option[value="u-anna"]')).toHaveCount(1);
+    await page.locator('#conversationPeople').selectOption('u-anna');
+    const conversationResponse = page.waitForResponse(response => response.url().endsWith('/api/messages/conversations') && response.request().method() === 'POST');
+    await page.locator('#saveConversation').click();
+    const conversation = await (await conversationResponse).json();
+
+    await page.locator('#messageBody').fill(ownText);
+    const ownResponse = page.waitForResponse(response => response.url().endsWith(`/api/messages/conversations/${conversation.id}/messages`) && response.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    const ownMessage = await (await ownResponse).json();
+    await expect(page.locator(`[data-message-id="${ownMessage.id}"] [data-delete-message]`)).toBeAttached();
+
+    const annaContext = await browser.newContext({
+      baseURL: 'http://127.0.0.1:3100',
+      viewport: { width: 1440, height: 1000 },
+      storageState: { cookies: [], origins: [] }
+    });
+    try {
+      const anna = await annaContext.newPage();
+      const guard = captureRuntimeFailures(anna);
+      await waitForApp(anna);
+      await openIdentity(anna);
+      await anna.locator('#loginEmail').fill('anna@bottomupparti.local');
+      await anna.locator('#loginPassword').fill('demo123');
+      await anna.locator('#login').click();
+      await expect(anna.locator('#userName')).toHaveText('Anna');
+      await go(anna, 'messages');
+      await anna.locator(`[data-conversation="${conversation.id}"]`).click();
+      await anna.locator('#messageBody').fill(incomingText);
+      await anna.locator('#messageComposer button[type="submit"]').click();
+      await expect(anna.locator('#messageThread')).toContainText(incomingText);
+      guard.assertClean();
+    } finally {
+      await annaContext.close();
+    }
+
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator(`[data-conversation="${conversation.id}"]`).click();
+    const foreignBubble = page.locator('.message-bubble').filter({ hasText: incomingText });
+    await expect(foreignBubble).toBeVisible();
+    await expect(foreignBubble.locator('[data-delete-message]')).toHaveCount(0);
+
+    const ownBubble = page.locator(`[data-message-id="${ownMessage.id}"]`);
+    page.once('dialog', dialog => dialog.accept());
+    const deleted = page.waitForResponse(response => response.url().endsWith(`/api/messages/${ownMessage.id}`) && response.request().method() === 'DELETE');
+    await ownBubble.locator('[data-delete-message]').click();
+    expect((await deleted).status()).toBe(200);
+    await expect(page.locator(`[data-message-id="${ownMessage.id}"][data-message-deleted="true"]`)).toContainText('Nachricht gelöscht');
+    await expect(page.locator('#messageThread')).not.toContainText(ownText);
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator(`[data-conversation="${conversation.id}"]`).click();
+    await expect(page.locator(`[data-message-id="${ownMessage.id}"][data-message-deleted="true"]`)).toContainText('Nachricht gelöscht');
+    await expect(page.locator('#messageThread')).not.toContainText(ownText);
+  });
+
   test('Projektrolle wird aus dem übergeordneten Space sicher abgeleitet', async ({ page }) => {
     const response = await page.request.get('/api/permissions/project/p1');
     expect(response.status()).toBe(200);

@@ -173,6 +173,46 @@ function check(name, condition, detail = '') {
     check('Private image security fixture creates a real conversation', imageConversation.status === 201, `HTTP ${imageConversation.status}`);
     const invalidImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, { name: 'not-an-image.txt', mimeType: 'text/plain' });
     check('Unsupported private image type is rejected server-side', invalidImage.status === 400, `HTTP ${invalidImage.status}`);
+    const authoredText = await request(max, 'POST', `/api/messages/conversations/${imageConversation.data.id}/messages`, { body: 'Author-controlled deletion fixture' });
+    check('Author deletion text fixture was created', authoredText.status === 201 && authoredText.data?.can_delete === true, `HTTP ${authoredText.status}`);
+    await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '👍' });
+    const foreignDelete = await request(anna, 'DELETE', `/api/messages/${authoredText.data.id}`);
+    check('Conversation member cannot delete another author message', foreignDelete.status === 403, `HTTP ${foreignDelete.status}`);
+    const outsiderDelete = await request(lisa, 'DELETE', `/api/messages/${authoredText.data.id}`);
+    check('Outsider cannot enumerate a message through deletion', outsiderDelete.status === 404, `HTTP ${outsiderDelete.status}`);
+    const ownDelete = await request(max, 'DELETE', `/api/messages/${authoredText.data.id}`);
+    check('Author can delete own message', ownDelete.status === 200 && ownDelete.data?.message?.deleted === true, `HTTP ${ownDelete.status}`);
+    const deletedThread = await request(anna, 'GET', `/api/messages/conversations/${imageConversation.data.id}`);
+    const deletedText = deletedThread.data?.messages?.find(message => message.id === authoredText.data.id);
+    check('Deleted message remains as content-free tombstone for participants', deletedThread.status === 200 && deletedText?.deleted === true && deletedText.body === '' && deletedText.media?.length === 0 && deletedText.reactions?.length === 0 && deletedText.can_delete === false);
+    const deletedReaction = await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '👍' });
+    check('Deleted message cannot receive new reactions', deletedReaction.status === 404, `HTTP ${deletedReaction.status}`);
+    const deletedExport = await request(max, 'GET', '/api/privacy/export');
+    const exportedTombstone = deletedExport.data?.conversations?.messages?.find(message => message.id === authoredText.data.id);
+    check('Privacy export represents an author-deleted message without its content', deletedExport.status === 200 && exportedTombstone?.deleted_at && exportedTombstone.body === '');
+
+    const validChatImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64');
+    const authoredImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, { name: 'delete-me.png', buffer: validChatImage });
+    check('Author deletion image fixture was created', authoredImage.status === 201 && authoredImage.data?.media?.length === 1, `HTTP ${authoredImage.status}`);
+    const deletedMediaId = authoredImage.data.media[0].id;
+    const mediaAuditBeforeDelete = new Database(dbPath, { readonly: true });
+    const mediaRowBeforeDelete = mediaAuditBeforeDelete.prepare('SELECT storage_key FROM private_media WHERE id=?').get(deletedMediaId);
+    mediaAuditBeforeDelete.close();
+    check('Image fixture has private metadata and a physical file', !!mediaRowBeforeDelete && fs.existsSync(path.join(process.cwd(), 'data', 'private-media', mediaRowBeforeDelete.storage_key)));
+    await request(anna, 'POST', `/api/messages/${authoredImage.data.id}/reactions`, { emoji: '❤️' });
+    const deleteImage = await request(max, 'DELETE', `/api/messages/${authoredImage.data.id}`);
+    check('Author can delete own image message', deleteImage.status === 200 && deleteImage.data?.message?.deleted === true, `HTTP ${deleteImage.status}`);
+    const mediaAuditAfterDelete = new Database(dbPath, { readonly: true });
+    const remainingMedia = mediaAuditAfterDelete.prepare('SELECT COUNT(*) n FROM private_media WHERE id=?').get(deletedMediaId).n;
+    const remainingLink = mediaAuditAfterDelete.prepare('SELECT COUNT(*) n FROM message_media WHERE message_id=?').get(authoredImage.data.id).n;
+    const remainingReaction = mediaAuditAfterDelete.prepare('SELECT COUNT(*) n FROM message_reactions WHERE message_id=?').get(authoredImage.data.id).n;
+    const deletionQueue = mediaAuditAfterDelete.prepare("SELECT reason,deleted_at FROM privacy_file_deletion_queue WHERE storage_class='private' AND storage_key=?").get(mediaRowBeforeDelete.storage_key);
+    mediaAuditAfterDelete.close();
+    check('Image deletion removes metadata, relation and reactions', remainingMedia === 0 && remainingLink === 0 && remainingReaction === 0);
+    check('Image deletion uses the recoverable file-deletion queue', deletionQueue?.reason === 'message_deletion' && !!deletionQueue.deleted_at);
+    check('Image deletion removes the physical private file', !fs.existsSync(path.join(process.cwd(), 'data', 'private-media', mediaRowBeforeDelete.storage_key)));
+    const deletedMediaFetch = await request(anna, 'GET', `/api/private-media/${deletedMediaId}`);
+    check('Deleted private media is no longer retrievable', deletedMediaFetch.status === 404, `HTTP ${deletedMediaFetch.status}`);
     const auditBeforeBlock = new Database(dbPath, { readonly: true });
     const privateMediaBeforeBlock = auditBeforeBlock.prepare('SELECT COUNT(*) n FROM private_media WHERE owner_user_id=?').get('u-max').n;
     auditBeforeBlock.close();
@@ -180,7 +220,7 @@ function check(name, condition, detail = '') {
     check('Blocking succeeds', blocked.status === 200, `HTTP ${blocked.status}`);
 
     const blockedImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, {
-      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWOIdVv1H4QZYAwATi4JMbpSuiMAAAAASUVORK5CYII=', 'base64')
+      buffer: validChatImage
     });
     check('Blocking prevents private image messages just like text messages', blockedImage.status === 403, `HTTP ${blockedImage.status}`);
     const auditAfterBlock = new Database(dbPath, { readonly: true });
