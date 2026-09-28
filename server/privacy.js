@@ -103,9 +103,9 @@ function publicMediaPresence(m,dir){
   return [...names].map(storage_key=>({storage_key,present:fs.existsSync(path.join(dir,storage_key))}));
 }
 
-function queueFile(db,storageClass,storageKey){
+function queueFile(db,storageClass,storageKey,reason='account_deletion'){
   const safe=path.basename(String(storageKey||''));if(!safe)return;
-  db.prepare(`INSERT OR IGNORE INTO privacy_file_deletion_queue(id,storage_class,storage_key,reason,created_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP)`).run('pfd-'+crypto.createHash('sha256').update(`${storageClass}:${safe}`).digest('hex').slice(0,32),storageClass,safe,'account_deletion');
+  db.prepare(`INSERT OR IGNORE INTO privacy_file_deletion_queue(id,storage_class,storage_key,reason,created_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP)`).run('pfd-'+crypto.createHash('sha256').update(`${storageClass}:${safe}`).digest('hex').slice(0,32),storageClass,safe,String(reason||'data_deletion').slice(0,80));
 }
 function queuePublicMediaFiles(db,m){
   if(m.storage_key)queueFile(db,'public',m.storage_key);
@@ -163,6 +163,7 @@ function deleteAccountData(db,userId,{privateUploadDir,publicUploadDir}={}){
     db.prepare('DELETE FROM participation_access WHERE user_id=?').run(userId);
     db.prepare('UPDATE participation_access SET decided_by=NULL WHERE decided_by=?').run(userId);
     db.prepare('DELETE FROM message_reactions WHERE user_id=?').run(userId);
+    if(authoredMessages.length){const q=authoredMessages.map(()=>'?').join(',');db.prepare(`DELETE FROM message_reactions WHERE message_id IN (${q})`).run(...authoredMessages)}
     db.prepare('DELETE FROM user_blocks WHERE blocker_id=? OR blocked_id=?').run(userId,userId);
     db.prepare('DELETE FROM conversation_members WHERE user_id=?').run(userId);
     db.prepare('DELETE FROM role_assignments WHERE user_id=?').run(userId);
@@ -242,4 +243,4 @@ function residualPersonalDataAudit(db,userId,{privateUploadDir,publicUploadDir}=
   return checks;
 }
 
-module.exports={PRIVACY_LIFECYCLE_POLICY,dataInventory,buildPrivacyExport,deleteAccountData,processPrivacyFileDeletionQueue,residualPersonalDataAudit,REDACTED_MESSAGE,REDACTED_POST,REDACTED_COMMENT,REDACTED_ARGUMENT};
+module.exports={PRIVACY_LIFECYCLE_POLICY,dataInventory,buildPrivacyExport,deleteAccountData,processPrivacyFileDeletionQueue,queueFile,residualPersonalDataAudit,REDACTED_MESSAGE,REDACTED_POST,REDACTED_COMMENT,REDACTED_ARGUMENT};

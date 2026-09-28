@@ -3,7 +3,12 @@ const path=require('path');
 const db=fs.readFileSync(path.join(__dirname,'..','server','db.js'),'utf8');
 const server=fs.readFileSync(path.join(__dirname,'..','server','server.js'),'utf8');
 const app=fs.readFileSync(path.join(__dirname,'..','public','app.js'),'utf8');
+const css=fs.readFileSync(path.join(__dirname,'..','public','style.css'),'utf8');
 const index=fs.readFileSync(path.join(__dirname,'..','public','index.html'),'utf8');
+const privacy=fs.readFileSync(path.join(__dirname,'..','server','privacy.js'),'utf8');
+const regression=fs.readFileSync(path.join(__dirname,'..','tests','integration','gold-regressions.integration.js'),'utf8');
+const desktop=fs.readFileSync(path.join(__dirname,'..','tests','e2e','gold.desktop.spec.js'),'utf8');
+const mobile=fs.readFileSync(path.join(__dirname,'..','tests','e2e','gold.mobile.spec.js'),'utf8');
 const checks=[
  ['conversations table',db,/CREATE TABLE IF NOT EXISTS conversations/],
  ['conversation members',db,/CREATE TABLE IF NOT EXISTS conversation_members/],
@@ -16,6 +21,18 @@ const checks=[
  ['group invite privacy gate',server,/canGroupInvite\(/],
  ['block gate',server,/isBlocked\(/],
  ['message UI route',app,/messages|Nachrichten|conversation/i],
+ ['author-only message deletion API',server,/app\.delete\('\/api\/messages\/:id'[^]*?m\.sender_id!==req\.userId[^]*?UPDATE messages SET body='',deleted_at=CURRENT_TIMESTAMP/],
+ ['deleted message tombstone view',server,/if\(deleted\)return \{\.\.\.m,body:'',deleted:true,can_delete:false,reactions:\[\],media:\[\]\}/],
+ ['deleted messages reject replies and reactions',server,/reply[^]*?deleted_at IS NULL[^]*?app\.post\('\/api\/messages\/:id\/reactions'[^]*?deleted_at IS NULL/],
+ ['private message media uses recoverable deletion queue',server,/queueFile\(db,'private',item\.storage_key,'message_deletion'\)/],
+ ['message deletion queue supports explicit lifecycle reasons',privacy,/function queueFile\(db,storageClass,storageKey,reason='account_deletion'\)/],
+ ['author deletion UI is server capability-driven',app,/m\.can_delete&&!deleted[^]*?data-delete-message/],
+ ['deleted message is content-free in the UI',app,/class="message-deleted">Nachricht gelöscht/],
+ ['message deletion controls are desktop and mobile accessible',css,/\.message-delete\{[^}]*opacity:0[^]*?@media\(max-width:850px\)\{\.message-delete\{opacity:1/],
+ ['API regressions enforce author, member and outsider boundaries',regression,/cannot delete another author message[^]*?cannot enumerate a message through deletion[^]*?Author can delete own message/],
+ ['API regressions cover export and physical media deletion',regression,/Privacy export represents an author-deleted message[^]*?removes the physical private file/],
+ ['desktop browser flow persists message tombstones',desktop,/Eigene Nachricht für alle löschen[^]*?data-message-deleted/],
+ ['mobile browser flow persists message tombstones',mobile,/Eigene Nachricht mobil kontrolliert löschen[^]*?data-message-deleted/],
  ['desktop chat navigation',index,/<aside[^>]*id="appSidebar"[\s\S]*?<nav>[\s\S]*?data-page="messages"[\s\S]*?<span>Chats<\/span>/i],
  ['mobile chat navigation',index,/<nav class="mobile-bottom-nav"[\s\S]*?data-page="messages"[\s\S]*?<small>Chats<\/small>/i]
 ];

@@ -167,6 +167,35 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await assertNoHorizontalOverflow(page);
   });
 
+  test('Eigene Nachricht mobil kontrolliert löschen und als Löschhinweis wiederfinden', async ({ page }) => {
+    const text = uniqueName('Mobile Löschung');
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    await page.locator('#conversationPeople').selectOption(recipient);
+    const conversationResponse = page.waitForResponse(response => response.url().endsWith('/api/messages/conversations') && response.request().method() === 'POST');
+    await page.locator('#saveConversation').click();
+    const conversation = await (await conversationResponse).json();
+    await page.locator('#messageBody').fill(text);
+    const messageResponse = page.waitForResponse(response => response.url().endsWith(`/api/messages/conversations/${conversation.id}/messages`) && response.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    const message = await (await messageResponse).json();
+    const bubble = page.locator(`[data-message-id="${message.id}"]`);
+    await expect(bubble.locator('[data-delete-message]')).toBeVisible();
+    page.once('dialog', dialog => dialog.accept());
+    const deleted = page.waitForResponse(response => response.url().endsWith(`/api/messages/${message.id}`) && response.request().method() === 'DELETE');
+    await bubble.locator('[data-delete-message]').click();
+    expect((await deleted).status()).toBe(200);
+    await expect(page.locator(`[data-message-id="${message.id}"][data-message-deleted="true"]`)).toContainText('Nachricht gelöscht');
+    await expect(page.locator('#messageThread')).not.toContainText(text);
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator(`[data-conversation="${conversation.id}"]`).click();
+    await expect(page.locator(`[data-message-id="${message.id}"][data-message-deleted="true"]`)).toContainText('Nachricht gelöscht');
+    await expect(page.locator('#messageThread')).not.toContainText(text);
+    await assertNoHorizontalOverflow(page);
+  });
+
   test('Blockierte Personen mobil verwalten und entblocken', async ({ page }) => {
     const target = await openVisibleOtherPerson(page);
     await blockOpenPerson(page, target.id);
