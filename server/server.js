@@ -122,7 +122,7 @@ function rateLimit(name,limit,windowMs){return (req,res,next)=>{
   res.setHeader('X-RateLimit-Limit',String(limit));
   if(b.n>limit){res.setHeader('Retry-After',String(Math.ceil((b.reset-now)/1000)));return res.status(429).json({error:'Zu viele Anfragen. Bitte kurz warten.'})}next()
 }}
-const writeLimit=rateLimit('write',180,60_000), loginLimit=rateLimit('login',10,15*60_000), deleteAccountLimit=rateLimit('delete-account',5,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
+const writeLimit=rateLimit('write',180,60_000),readLimit=rateLimit('read',1200,60_000), loginLimit=rateLimit('login',10,15*60_000), deleteAccountLimit=rateLimit('delete-account',5,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
 function text(value,max=5000){return String(value??'').trim().slice(0,max)}
 const SAFE_INPUT_ICONS=new Set(['✦','◆','◈','☑','♻️','🇩🇪','🌳','🏙️','🏛️','📋','📍','🗳️','🚲']);
 function validatedIcon(value,fallback){if(value===undefined||value===null||value==='')return fallback;const v=String(value).trim();return SAFE_INPUT_ICONS.has(v)?v:null}
@@ -417,7 +417,10 @@ app.post('/api/login',loginLimit,csrfGuard,(req,res)=>{
   res.append('Set-Cookie',`bup_csrf=${nextCsrf}; ${cookieFlags(false)}Max-Age=86400`);
   res.json({user:getUserSafe(u.id),csrf:nextCsrf});
 });
-app.use('/api',csrfGuard,writeLimit);
+app.use('/api',csrfGuard,(req,res,next)=>{
+  if(['GET','HEAD','OPTIONS'].includes(req.method))return readLimit(req,res,next);
+  writeLimit(req,res,next);
+});
 app.post('/api/logout',(req,res)=>{const token=cookies(req).bup_session;if(token)db.prepare('DELETE FROM sessions WHERE token=?').run(sessionKey(token));res.append('Set-Cookie',`bup_session=; ${cookieFlags(true)}Max-Age=0`);res.json({ok:true});});
 
 app.get('/api/notifications',requireUser,(req,res)=>{res.json({items:db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY datetime(created_at) DESC LIMIT 50').all(req.userId),unread:db.prepare('SELECT COUNT(*) n FROM notifications WHERE user_id=? AND read_at IS NULL').get(req.userId).n})});

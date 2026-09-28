@@ -292,6 +292,17 @@ function check(name, condition, detail = '') {
       check(`invisible private ${type} cannot be followed or enumerated`, hiddenFollow.status === 404, `HTTP ${hiddenFollow.status}`);
     }
 
+    // Read-heavy navigation must not consume the budget for mutations such as
+    // logout, posting or account actions shared by clients behind one IP.
+    let readStatus = 200;
+    for (let i = 0; i < 190; i++) {
+      const result = await request(max, 'GET', '/api/notifications');
+      if (result.status !== 200) { readStatus = result.status; break; }
+    }
+    check('Repeated authorized reads do not exhaust the write budget', readStatus === 200, `HTTP ${readStatus}`);
+    const writeAfterReads = await request(max, 'POST', '/api/notifications/read', {});
+    check('A protected write still succeeds after many reads', writeAfterReads.status === 200, `HTTP ${writeAfterReads.status}`);
+
     if (failures.length) throw new Error(`${failures.length} Gold regression check(s) failed: ${failures.join(', ')}`);
     console.log('\nGold regression integration: PASS');
   } catch (error) {

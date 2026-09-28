@@ -12,5 +12,6 @@ Nach Auswahl einer Person blieb das Schreibfeld aus. Im Dialog erschienen sowohl
 - Das schlankere Erstellen-Fenster zeigt nur die zur Art passenden Felder. Fehlende Auswahl und Server-Ablehnung werden dauerhaft lesbar im Fenster angezeigt.
 - Nach erfolgreichem Erstellen wird die Unterhaltung einmal kontrolliert geladen und das Schreibfeld fokussiert; auch der Profilknopf verwendet denselben Weg. Keine unbeabsichtigte Ortsbindung von Chats.
 - Desktop- und Mobile-Browserfälle decken den Profilknopf, das Schreibfeld sowie den Wechsel zwischen unterschiedlichen Kontaktregeln ab.
+- Der vollständige Browserlauf deckte zusätzlich einen unabhängigen Bestandsfehler auf: Das schreibende API-Limit zählte auch lesende Anfragen und sperrte so nach intensiver Nutzung Abmelden, Kontolöschung und gelegentlich das Anlegen von Events. Lesende und schreibende Anfragen erhalten getrennte IP-Budgets; Login und Kontolöschung behalten ihre eigenen strengeren Grenzen. Ein API-Test prüft 190 berechtigte Lesezugriffe mit anschließendem erfolgreichen geschützten Schreibzugriff.
 
 Die grundsätzliche visuelle Gestaltung des gesamten Chatbereichs bleibt als eigenständige UX-Aufgabe offen; die gezeigte Erstellen-Maske ist hier gezielt vereinfacht. Preflight, Sicherheits-/Datenschutzprüfungen und echter Browserlauf sind vor Freigabe erforderlich.
