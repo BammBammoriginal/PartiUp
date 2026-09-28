@@ -143,8 +143,14 @@ test.describe('Goldstandard Mobile 412x915', () => {
   });
 
   test('Personenprofil öffnet mobil den bedienbaren Nachrichteneditor', async ({ page }) => {
+    const recipient = await page.evaluate(async () => {
+      const data = await (await fetch('/api/bootstrap', { credentials: 'same-origin' })).json();
+      return data.message_recipients.find(p => p.direct_allowed)?.id;
+    });
+    expect(recipient, 'Kein erlaubter Direktkontakt im Teststand').toBeTruthy();
     await go(page, 'people');
-    const person = page.locator('#people-list .person-card').filter({ hasText: 'Anna' }).first();
+    await page.locator('#people [data-shared-place-select]').selectOption('all');
+    const person = page.locator('#people-list .person-card[data-user="' + recipient + '"]');
     await person.locator('.grow > b').click();
     await page.locator('#startDmFromProfile').click();
     await expect(page.locator('#messages')).toHaveClass(/active/);

@@ -261,8 +261,14 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
   });
 
   test('Personenprofil öffnet sofort den Schreibbereich; nicht erlaubte Kontakte bleiben ausgeschlossen', async ({ page }) => {
+    const recipient = await page.evaluate(async () => {
+      const data = await (await fetch('/api/bootstrap', { credentials: 'same-origin' })).json();
+      return data.message_recipients.find(p => p.direct_allowed)?.id;
+    });
+    expect(recipient, 'Kein erlaubter Direktkontakt im Teststand').toBeTruthy();
     await go(page, 'people');
-    const person = page.locator('#people-list .person-card').filter({ hasText: 'Anna' }).first();
+    await page.locator('#people [data-shared-place-select]').selectOption('all');
+    const person = page.locator('#people-list .person-card[data-user="' + recipient + '"]');
     await person.locator('.grow > b').click();
     await expect(page.locator('#startDmFromProfile')).toBeVisible();
     await page.locator('#startDmFromProfile').click();
@@ -275,16 +281,16 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
       const response = await route.fetch();
       const data = await response.json();
       data.message_recipients = data.message_recipients.map(p =>
-        p.id === 'u-anna' ? { ...p, direct_allowed: false, group_allowed: true } : p
+        p.id === recipient ? { ...p, direct_allowed: false, group_allowed: true } : p
       );
       await route.fulfill({ response, json: data });
     });
     await page.reload();
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    await expect(page.locator('#conversationPeople option[value="u-anna"]')).toHaveCount(0);
+    await expect(page.locator('#conversationPeople option[value="' + recipient + '"]')).toHaveCount(0);
     await page.locator('#conversationType').selectOption('group');
-    await expect(page.locator('#conversationPeople option[value="u-anna"]')).toHaveCount(1);
+    await expect(page.locator('#conversationPeople option[value="' + recipient + '"]')).toHaveCount(1);
     await page.locator('#conversationType').selectOption('direct');
     const other = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(other);
