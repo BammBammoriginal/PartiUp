@@ -260,6 +260,44 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#messageThread')).toContainText(message);
   });
 
+  test('Personenprofil öffnet sofort den Schreibbereich; nicht erlaubte Kontakte bleiben ausgeschlossen', async ({ page }) => {
+    await go(page, 'people');
+    const person = page.locator('#people-list .person-card').filter({ hasText: 'Anna' }).first();
+    await person.locator('.grow > b').click();
+    await expect(page.locator('#startDmFromProfile')).toBeVisible();
+    await page.locator('#startDmFromProfile').click();
+    await expect(page.locator('#messageComposer')).toBeVisible();
+    await expect(page.locator('#messageBody')).toBeFocused();
+    await expect(page.locator('#messages')).toHaveClass(/active/);
+    await expect(page.locator('#modal')).not.toHaveClass(/show/);
+
+    await page.route('**/api/bootstrap', async route => {
+      const response = await route.fetch();
+      const data = await response.json();
+      data.message_recipients = data.message_recipients.map(p =>
+        p.id === 'u-anna' ? { ...p, direct_allowed: false, group_allowed: true } : p
+      );
+      await route.fulfill({ response, json: data });
+    });
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    await expect(page.locator('#conversationPeople option[value="u-anna"]')).toHaveCount(0);
+    await page.locator('#conversationType').selectOption('group');
+    await expect(page.locator('#conversationPeople option[value="u-anna"]')).toHaveCount(1);
+    await page.locator('#conversationType').selectOption('direct');
+    const other = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
+    await page.locator('#conversationPeople').selectOption(other);
+    await page.route('**/api/messages/conversations', route =>
+      route.request().method() === 'POST'
+        ? route.fulfill({ status: 403, json: { error: 'Diese Person nimmt keine Direktnachrichten an.' } })
+        : route.continue()
+    );
+    await page.locator('#saveConversation').click();
+    await expect(page.locator('#conversationError')).toHaveText('Diese Person nimmt keine Direktnachrichten an.');
+    await expect(page.locator('#modal')).toHaveClass(/show/);
+  });
+
   test('Mehrere Reaktionen auswählen, Urheber sehen und eigene Reaktion wieder entfernen', async ({ page }) => {
     await go(page, 'messages');
     await page.locator('#createConversation').click();
