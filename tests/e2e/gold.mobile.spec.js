@@ -101,7 +101,7 @@ test.describe('Goldstandard Mobile 412x915', () => {
     expect(await select.locator('option').count()).toBeGreaterThan(1);
     const values = await select.locator('option').evaluateAll(options => options.map(o => o.value));
     await select.selectOption(values.at(-1));
-    const name = (await select.locator('option:checked').textContent()).trim();
+    const name = (await select.locator('option:checked').textContent()).replace(/^[—\s]+/u, '').trim();
     await expect(page.locator('#discoverHeading')).toContainText(name);
     await assertNoHorizontalOverflow(page);
   });

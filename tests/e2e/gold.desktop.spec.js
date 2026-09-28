@@ -207,7 +207,10 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#topic-grid')).not.toContainText('Kultur');
     await go(page, 'people');
     await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('nue');
-    await expect(page.locator('#people-list')).not.toContainText('Anna');
+    await expect(page.locator('#people-list')).toContainText('Weitere sichtbare Profile ohne freigegebenen Ort');
+    const annaWithoutPlace = page.locator('#people-list .person-card[data-user="u-anna"]');
+    await expect(annaWithoutPlace).toBeVisible();
+    await expect(annaWithoutPlace).not.toContainText('Erlangen');
     await page.locator('#people [data-shared-place-select]').selectOption('all');
     await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('all');
     await expect(page.locator('#people-list')).toContainText('Anna');
