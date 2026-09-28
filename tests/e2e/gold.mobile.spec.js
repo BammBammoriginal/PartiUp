@@ -129,7 +129,7 @@ test.describe('Goldstandard Mobile 412x915', () => {
     const message = uniqueName('Mobile Nachricht');
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    const recipient = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(recipient);
     await page.locator('#saveConversation').click();
     await page.locator('#messageBody').fill(message);
@@ -191,7 +191,7 @@ test.describe('Goldstandard Mobile 412x915', () => {
     });
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    const recipient = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(recipient);
     await page.locator('#saveConversation').click();
 
@@ -232,7 +232,7 @@ test.describe('Goldstandard Mobile 412x915', () => {
     const text = uniqueName('Mobile Löschung');
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    const recipient = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(recipient);
     const conversationResponse = page.waitForResponse(response => response.url().endsWith('/api/messages/conversations') && response.request().method() === 'POST');
     await page.locator('#saveConversation').click();

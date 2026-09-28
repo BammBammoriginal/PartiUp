@@ -247,7 +247,7 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     const message = uniqueName('Gold Nachricht');
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    const recipient = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(recipient);
     await page.locator('#saveConversation').click();
     await expect(page.locator('#messageComposer')).toBeVisible();
@@ -336,7 +336,7 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     });
     await go(page, 'messages');
     await page.locator('#createConversation').click();
-    const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+    const recipient = await page.locator('#conversationPeople option:not([value=""])').first().getAttribute('value');
     await page.locator('#conversationPeople').selectOption(recipient);
     await page.locator('#saveConversation').click();
 
