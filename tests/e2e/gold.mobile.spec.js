@@ -142,6 +142,31 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await assertNoHorizontalOverflow(page);
   });
 
+  test('Emoji-Auswahl und Reaktionsurheber bleiben mobil ohne Überlauf erreichbar', async ({ page }) => {
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    await page.locator('#conversationPeople').selectOption('u-anna');
+    const created = page.waitForResponse(r => r.url().endsWith('/api/messages/conversations') && r.request().method() === 'POST');
+    await page.locator('#saveConversation').click();
+    const conversation = await (await created).json();
+    await page.locator('#messageBody').fill(uniqueName('Mobile Reaktion'));
+    const sent = page.waitForResponse(r => r.url().endsWith(`/api/messages/conversations/${conversation.id}/messages`) && r.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    const message = await (await sent).json();
+    const bubble = page.locator(`[data-message-id="${message.id}"]`);
+    await bubble.locator('.reaction-picker summary').click();
+    await expect(bubble.locator('.reaction-picker [data-emoji="😂"]')).toBeVisible();
+    await bubble.locator('.reaction-picker [data-emoji="😂"]').click();
+    await expect(bubble.locator('.message-reactions [data-emoji="😂"][aria-pressed="true"]')).toBeVisible();
+    await bubble.locator('.reaction-people summary').click();
+    await expect(bubble.locator('.reaction-people')).toContainText('Max');
+    await assertNoHorizontalOverflow(page);
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator(`[data-conversation="${conversation.id}"]`).click();
+    await expect(bubble.locator('.message-reactions [data-emoji="😂"][aria-pressed="true"]')).toBeVisible();
+  });
+
   test('Chatbild mobil lokal prüfen, entfernen und bewusst senden', async ({ page }) => {
     const uploads = [];
     page.on('request', request => {

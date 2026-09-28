@@ -167,6 +167,14 @@ function check(name, condition, detail = '') {
     const annaNetwork = await request(anna, 'GET', '/api/bootstrap');
     check('Confirmed friends may communicate without a shared community', (annaNetwork.data.message_recipients || []).some(person => person.id === 'u-lisa'));
 
+    const groupConversation = await request(anna, 'POST', '/api/messages/conversations', { type: 'group', title: 'Reaktionsprüfung', member_ids: ['u-max','u-lisa'] });
+    check('Shared group reactions use ordinary member access', groupConversation.status === 201, `HTTP ${groupConversation.status}`);
+    const groupMessage = await request(anna, 'POST', `/api/messages/conversations/${groupConversation.data.id}/messages`, { body: 'Gruppenreaktionen' });
+    await request(max, 'POST', `/api/messages/${groupMessage.data.id}/reactions`, { emoji: '👏' });
+    const groupThread = await request(lisa, 'GET', `/api/messages/conversations/${groupConversation.data.id}`);
+    const groupReaction = groupThread.data?.messages?.find(m => m.id === groupMessage.data.id)?.reactions?.find(r => r.emoji === '👏');
+    check('Group members see only member-owned reaction names', groupThread.status === 200 && groupReaction?.count === 1 && groupReaction.users?.[0]?.name === 'Max' && !JSON.stringify(groupReaction).includes('@bottomupparti.local'));
+
     await request(max, 'POST', '/api/follows', { target_type: 'person', target_id: 'u-anna', notification_level: 'feed' });
     await request(anna, 'POST', '/api/follows', { target_type: 'person', target_id: 'u-max', notification_level: 'feed' });
     const imageConversation = await request(max, 'POST', '/api/messages/conversations', { type: 'direct', direct_user_id: 'u-anna' });
@@ -176,6 +184,21 @@ function check(name, condition, detail = '') {
     const authoredText = await request(max, 'POST', `/api/messages/conversations/${imageConversation.data.id}/messages`, { body: 'Author-controlled deletion fixture' });
     check('Author deletion text fixture was created', authoredText.status === 201 && authoredText.data?.can_delete === true, `HTTP ${authoredText.status}`);
     await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '👍' });
+    await request(max, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '❤️' });
+    await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '❤️' });
+    const reactedThread = await request(max, 'GET', `/api/messages/conversations/${imageConversation.data.id}`);
+    const reactedMessage = reactedThread.data?.messages?.find(m => m.id === authoredText.data.id);
+    const hearts = reactedMessage?.reactions?.find(r => r.emoji === '❤️');
+    check('Reaction choices come from the server and counts remain per emoji', reactedThread.data.available_reactions?.length === 6 && hearts?.count === 2 && hearts.mine === true);
+    check('Reaction authors are visible only as current conversation members', hearts?.users?.map(u => u.name).sort().join(',') === 'Anna,Max' && !JSON.stringify(hearts).includes('@bottomupparti.local'));
+    const outsiderReactions = await request(lisa, 'GET', `/api/messages/conversations/${imageConversation.data.id}`);
+    const outsiderAdd = await request(lisa, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '😂' });
+    check('Outsiders cannot read or alter message reactions', outsiderReactions.status === 404 && outsiderAdd.status === 404);
+    const invalidReaction = await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '🙈' });
+    check('Unsupported reactions are rejected', invalidReaction.status === 400);
+    await request(anna, 'POST', `/api/messages/${authoredText.data.id}/reactions`, { emoji: '👍' });
+    const toggledThread = await request(anna, 'GET', `/api/messages/conversations/${imageConversation.data.id}`);
+    check('Members can remove only their own emoji reaction', !toggledThread.data.messages.find(m => m.id === authoredText.data.id).reactions.some(r => r.emoji === '👍') && toggledThread.data.messages.find(m => m.id === authoredText.data.id).reactions.find(r => r.emoji === '❤️')?.count === 2);
     const foreignDelete = await request(anna, 'DELETE', `/api/messages/${authoredText.data.id}`);
     check('Conversation member cannot delete another author message', foreignDelete.status === 403, `HTTP ${foreignDelete.status}`);
     const outsiderDelete = await request(lisa, 'DELETE', `/api/messages/${authoredText.data.id}`);
@@ -218,6 +241,8 @@ function check(name, condition, detail = '') {
     auditBeforeBlock.close();
     const blocked = await request(max, 'POST', '/api/users/u-anna/block', {});
     check('Blocking succeeds', blocked.status === 200, `HTTP ${blocked.status}`);
+    const blockedReaction = await request(max, 'POST', `/api/messages/${groupMessage.data.id}/reactions`, { emoji: '😂' });
+    check('Blocking prevents new reactions in a shared conversation', blockedReaction.status === 403, `HTTP ${blockedReaction.status}`);
 
     const blockedImage = await multipartRequest(max, `/api/messages/conversations/${imageConversation.data.id}/images`, {
       buffer: validChatImage

@@ -9,7 +9,7 @@ const checks=[
  ['project icon constrained', /safeIcon\(p\.icon,'◆'\)/.test(app)],
  ['participation icon constrained', /safeIcon\(p\.icon,'☑'\)/.test(app)],
  ['place icon constrained and name escaped', /safeIcon\(p\.icon,'📍'\)[\s\S]*esc\(p\.name\)/.test(app)],
- ['message reaction emoji constrained', /safeIcon\(r\.emoji,'👍'\)/.test(app)],
+ ['message reaction emoji constrained', /SAFE_ICONS\.has\(r\.emoji\)/.test(app)&&/esc\(r\.emoji\)/.test(app)],
  ['media URLs validated before attribute interpolation', /safeMediaUrlValue/.test(app)&&/mediaSrc/.test(app)&&!/src="\$\{mediaUrl\(/.test(app)],
  ['dynamic ids escaped in card attributes', /data-id="\$\{escAttr\(c\.id\)\}"/.test(app)&&/data-event="\$\{escAttr\(e\.id\)\}"/.test(app)&&/data-project="\$\{escAttr\(p\.id\)\}"/.test(app)],
  ['dynamic class source uses allowlist', /safeClassToken\(o\?\.source,\['external','native'\],'native'\)/.test(app)],

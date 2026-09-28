@@ -260,6 +260,31 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#messageThread')).toContainText(message);
   });
 
+  test('Mehrere Reaktionen auswählen, Urheber sehen und eigene Reaktion wieder entfernen', async ({ page }) => {
+    await go(page, 'messages');
+    await page.locator('#createConversation').click();
+    await page.locator('#conversationPeople').selectOption('u-anna');
+    const created = page.waitForResponse(r => r.url().endsWith('/api/messages/conversations') && r.request().method() === 'POST');
+    await page.locator('#saveConversation').click();
+    const conversation = await (await created).json();
+    await page.locator('#messageBody').fill(uniqueName('Gold Reaktionen'));
+    const sent = page.waitForResponse(r => r.url().endsWith(`/api/messages/conversations/${conversation.id}/messages`) && r.request().method() === 'POST');
+    await page.locator('#messageComposer button[type="submit"]').click();
+    const message = await (await sent).json();
+    const bubble = page.locator(`[data-message-id="${message.id}"]`);
+    await bubble.locator('.reaction-picker summary').click();
+    await bubble.locator('.reaction-picker [data-emoji="❤️"]').click();
+    await expect(bubble.locator('.message-reactions [data-emoji="❤️"][aria-pressed="true"]')).toContainText('1');
+    await bubble.locator('.reaction-people summary').click();
+    await expect(bubble.locator('.reaction-people')).toContainText('Max');
+    await page.reload();
+    await go(page, 'messages');
+    await page.locator(`[data-conversation="${conversation.id}"]`).click();
+    await expect(bubble.locator('.message-reactions [data-emoji="❤️"][aria-pressed="true"]')).toBeVisible();
+    await bubble.locator('.message-reactions [data-emoji="❤️"][aria-pressed="true"]').click();
+    await expect(bubble.locator('.message-reactions [data-emoji="❤️"][aria-pressed="true"]')).toHaveCount(0);
+  });
+
   test('Chatbild lokal prüfen, entfernen und erst beim Senden übertragen', async ({ page }) => {
     const uploads = [];
     page.on('request', request => {

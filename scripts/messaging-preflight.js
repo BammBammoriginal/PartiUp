@@ -33,6 +33,10 @@ const checks=[
  ['API regressions cover export and physical media deletion',regression,/Privacy export represents an author-deleted message[^]*?removes the physical private file/],
  ['desktop browser flow persists message tombstones',desktop,/Eigene Nachricht für alle löschen[^]*?data-message-deleted/],
  ['mobile browser flow persists message tombstones',mobile,/Eigene Nachricht mobil kontrolliert löschen[^]*?data-message-deleted/],
+ ['reaction choices are server-defined and exposed only with a conversation',server,/MESSAGE_REACTION_EMOJIS=Object\.freeze\([^]*?available_reactions:MESSAGE_REACTION_EMOJIS/],
+ ['reaction authors come only from current conversation members',server,/FROM message_reactions mr JOIN conversation_members cm ON cm\.conversation_id=\? AND cm\.user_id=mr\.user_id JOIN users u/],
+ ['desktop browser exercises choice, authors and persistence',desktop,/Mehrere Reaktionen auswählen, Urheber sehen und eigene Reaktion wieder entfernen/],
+ ['mobile browser exercises accessible choices and authors',mobile,/Emoji-Auswahl und Reaktionsurheber bleiben mobil ohne Überlauf erreichbar/],
  ['desktop chat navigation',index,/<aside[^>]*id="appSidebar"[\s\S]*?<nav>[\s\S]*?data-page="messages"[\s\S]*?<span>Chats<\/span>/i],
  ['mobile chat navigation',index,/<nav class="mobile-bottom-nav"[\s\S]*?data-page="messages"[\s\S]*?<small>Chats<\/small>/i]
 ];
