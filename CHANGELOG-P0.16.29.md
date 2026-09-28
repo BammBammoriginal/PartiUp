@@ -25,4 +25,6 @@ Desktop- und Mobile-Goldfälle prüfen Ortswechsel, die einheitliche Anzeige üb
 
 Der erste isolierte Browserlauf für PR #8 bestand 28/35 Fällen. Sieben Fehler betrafen die Erreichbarkeit des Kontos im mobilen Drawer, sichtbare Personen ohne freigegebenen Ort und eine Einrückung in der mobilen Ortsauswahl. Die gezielten Korrekturen oben benötigen einen erneuten vollständigen Browserlauf; der erste Lauf gilt ausdrücklich nicht als Freigabe.
 
+Der zweite Lauf bestand 34/35. Im verbleibenden Navigationsfall klickte der Test auf die Mitte einer Personenkarte und traf dort eine eigene Kartenaktion. Der Test klickt nun wie die anderen Sicherheitsabläufe ausdrücklich auf den sichtbaren Namen; eine statische Schranke schützt diesen Pfad gegen das alte Klickmuster. Vollständige Browserabnahme weiterhin offen.
+
 Die mögliche Umordnung von persönlichen Kontakten und Chats sowie ein zusätzlicher Einstieg über ein Sprechblasen-Symbol im Kopfbereich sind als eigenständiger UX-Schritt R6f vermerkt. Diese Version ändert weder Gesprächsrechte noch Chatnavigation, Datenmodell oder Föderationsregeln.

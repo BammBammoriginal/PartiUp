@@ -239,7 +239,7 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#community-space')).toHaveClass(/active/);
 
     await go(page, 'people');
-    await page.locator('#people-list .person-card').first().click();
+    await page.locator('#people-list .person-card .grow > b').first().click();
     await expect(page.locator('#person-space')).toHaveClass(/active/);
   });
 
