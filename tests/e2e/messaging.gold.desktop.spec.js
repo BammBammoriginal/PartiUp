@@ -64,3 +64,77 @@ test('Öffentliches Profil: Nachricht aus Personenansicht zwischen zwei echten K
   await expect(page.locator('#messageThread')).toContainText(reply);
   guardMax.assertClean();
 });
+
+test('Zwei Konten sichtbar registrieren und nach Freigabe Nachrichten austauschen', async ({ browser }) => {
+  const first = await browser.newContext({
+    baseURL: 'http://127.0.0.1:3100',
+    viewport: { width: 1440, height: 1000 },
+    storageState: { cookies: [], origins: [] }
+  });
+  const second = await browser.newContext({
+    baseURL: 'http://127.0.0.1:3100',
+    viewport: { width: 1440, height: 1000 },
+    storageState: { cookies: [], origins: [] }
+  });
+  const suffix = Date.now().toString(36);
+  const password = 'Testpasswort-2026-lang';
+  async function register(context, name) {
+    const page = await context.newPage();
+    const guard = captureRuntimeFailures(page);
+    await waitForApp(page);
+    await openIdentity(page);
+    await page.locator('#showRegistration').click();
+    await expect(page.locator('#registerName')).toBeVisible();
+    await page.locator('#registerName').fill(name);
+    await page.locator('#registerEmail').fill(`qa-${name.toLowerCase()}-${suffix}@example.test`);
+    await page.locator('#registerPassword').fill(password);
+    const response = page.waitForResponse(result =>
+      result.url().endsWith('/api/register') && result.request().method() === 'POST'
+    );
+    await page.locator('#register').click();
+    expect((await response).status()).toBe(201);
+    await expect(page.locator('#userName')).toHaveText(name);
+    const cookies = await context.cookies();
+    expect(cookies.some(cookie => cookie.name === 'bup_session')).toBeTruthy();
+    await openIdentity(page);
+    await expect(page.locator('#profileVisibility')).toHaveValue(/^(network|members)$/);
+    await expect(page.locator('#dmPermission')).toHaveValue('members');
+    await page.locator('#profileVisibility').selectOption('public');
+    await page.locator('#dmPermission').selectOption('all');
+    const saved = page.waitForResponse(result =>
+      result.url().endsWith('/api/preferences') && result.request().method() === 'PUT'
+    );
+    await page.locator('#savePrefs').click();
+    expect((await saved).status()).toBe(200);
+    await page.locator('#closeModal').click();
+    return { page, guard };
+  }
+  try {
+    const a = await register(first, 'Nora');
+    const b = await register(second, 'Tarek');
+    const message = uniqueName('Neu registriert');
+    await a.page.reload();
+    await go(a.page, 'people');
+    const recipient = a.page.locator('#people-list .person-card').filter({ hasText: 'Tarek' });
+    await expect(recipient).toBeVisible();
+    await recipient.locator('.grow > b').click();
+    await expect(a.page.locator('#startDmFromProfile')).toBeVisible();
+    await a.page.locator('#startDmFromProfile').click();
+    await expect(a.page.locator('#messageComposer')).toBeVisible();
+    await a.page.locator('#messageBody').fill(message);
+    await a.page.locator('#messageComposer button[type="submit"]').click();
+    await expect(a.page.locator('#messageThread')).toContainText(message);
+    await go(b.page, 'messages');
+    await b.page.locator('#conversationList [data-conversation]').first().click();
+    await expect(b.page.locator('#messageThread')).toContainText(message);
+    await b.page.reload();
+    await go(b.page, 'messages');
+    await b.page.locator('#conversationList [data-conversation]').first().click();
+    await expect(b.page.locator('#messageThread')).toContainText(message);
+    a.guard.assertClean();
+    b.guard.assertClean();
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
