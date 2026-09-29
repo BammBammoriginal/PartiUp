@@ -97,7 +97,7 @@
   "dependencies": {
     "better-sqlite3": "12.11.1",
     "express": "4.22.2",
-    "multer": "2.3.0",
+    "multer": "2.4.0",
     "sharp": "0.35.4"
   },
   "overrides": {
