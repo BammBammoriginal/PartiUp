@@ -2,6 +2,7 @@ const fs = require('fs');
 
 const config = fs.readFileSync('playwright.config.js', 'utf8');
 const desktop = fs.readFileSync('tests/e2e/gold.desktop.spec.js', 'utf8');
+const messaging = fs.readFileSync('tests/e2e/messaging.gold.desktop.spec.js', 'utf8');
 const mobile = fs.readFileSync('tests/e2e/gold.mobile.spec.js', 'utf8');
 const auth = fs.readFileSync('tests/auth.setup.js', 'utf8');
 const helper = fs.readFileSync('tests/helpers/gold.js', 'utf8');
@@ -12,7 +13,7 @@ const server = fs.readFileSync('server/server.js', 'utf8');
 const regressions = fs.readFileSync('tests/integration/gold-regressions.integration.js', 'utf8');
 const privacyLifecycle = fs.readFileSync('tests/integration/privacy-data-lifecycle.integration.js', 'utf8');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-const all = `${desktop}\n${mobile}\n${helper}`;
+const all = `${desktop}\n${mobile}\n${helper}\n${messaging}`;
 
 const checks = [
   ['isolated QA database', /qa-bottomupparti-\$\{qaRunId\}\.db/.test(config)],
@@ -29,7 +30,7 @@ const checks = [
   ['authentication setup has dedicated timeout', /setup\.setTimeout\(20_000\)/.test(auth)],
   ['real session cookie assertion', /bup_session/.test(auth)],
   ['no test login bypass', !/test-login|qa-login|login-test/i.test(auth + config)],
-  ['visible block fixture respects profile privacy', /anna@bottomupparti\.local/.test(auth) && /#profileVisibility/.test(auth) && /selectOption\('members'\)/.test(auth) && /#savePrefs/.test(auth)],
+  ['public communication fixtures use real accounts', ['anna@bottomupparti.local','lisa@bottomupparti.local','max@bottomupparti.local'].every(email => auth.includes(email)) && /#profileVisibility/.test(auth) && /selectOption\('public'\)/.test(auth) && /#dmPermission/.test(auth) && /selectOption\('all'\)/.test(auth) && /#savePrefs/.test(auth)],
   ['runtime page errors captured', /pageerror/.test(helper)],
   ['runtime failed requests captured', /requestfailed/.test(helper)],
   ['runtime server errors captured', /status\(\)\s*>=\s*500/.test(helper)],
@@ -47,6 +48,7 @@ const checks = [
   ['place selector and combined context', /#discoverLocalPlace/.test(desktop) && /data-context-place-filter/.test(desktop)],
   ['place/topic/community/person navigation', /Vernetzte Navigation über Ort, Thema, Community, Person/.test(desktop)],
   ['message persistence flow', /Nachricht senden und nach Reload/.test(all)],
+  ['profile message flow reaches another account and survives reload', /Öffentliches Profil: Nachricht aus Personenansicht zwischen zwei echten Konten/.test(messaging) && /#startDmFromProfile/.test(messaging) && /#messageComposer/.test(messaging) && /anna\.reload\(\)/.test(messaging)],
   ['chat media is bounded without cropping or aspect-ratio loss', /assertChatMediaLayout/.test(helper) && /expectedRatio/.test(helper) && /object-fit:contain/.test(css) && /max-height:360px/.test(css)],
   ['chat media has an accessible explicit large viewer', /openAndCloseChatMediaViewer/.test(helper) && /id="messageMediaViewer"/.test(app) && /data-close-message-media/.test(app)],
   ['mobile chat switches between list and focused thread', /#backToConversations/.test(mobile) && /has-active-thread/.test(app) && /messages-layout\.has-active-thread \.conversation-list\{display:none\}/.test(css)],
