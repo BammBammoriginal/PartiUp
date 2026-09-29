@@ -53,7 +53,7 @@
     "moderation-preflight": "node scripts/moderation-preflight.js",
     "stability-security-preflight": "node scripts/stability-security-preflight.js",
     "security-integration": "node tests/integration/security-permissions.integration.js",
-    "qa:security": "npm run security-integration && node tests/integration/event-access.integration.js && npm run privacy-data-lifecycle-integration && npm run user-federation-privacy-integration && npm run federation-inbox-resource-integration && npm run xss-payloads-test && npm run login-participation-reports-integration",
+    "qa:security": "npm run security-integration && node tests/integration/event-access.integration.js && npm run privacy-data-lifecycle-integration && npm run user-federation-privacy-integration && npm run federation-inbox-resource-integration && npm run xss-payloads-test && npm run login-participation-reports-integration && node tests/integration/registration.integration.js",
     "privacy-hardening-preflight": "node scripts/privacy-hardening-preflight.js",
     "partiup-architecture-preflight": "node scripts/partiup-architecture-preflight.js",
     "partiup-federation-model-preflight": "node scripts/partiup-federation-model-preflight.js",
