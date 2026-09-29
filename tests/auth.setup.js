@@ -29,21 +29,35 @@ setup('authenticate once for QA suite', async ({ page }) => {
   await expect(page.locator('#mainContent')).toBeAttached();
   await expect(page.locator('#friendCount')).not.toHaveText('–');
 
-  // Establish the browser fixture through the public UI. The target profile is
-  // deliberately visible to signed-in members, so the block journey never
-  // depends on a hard-coded friendship, demo name or a database shortcut.
-  await visibleLogin(page, 'anna@bottomupparti.local', 'Anna');
-  await page.locator('#identityButton').click();
-  await page.locator('#profileVisibility').selectOption('members');
-  const saved = page.waitForResponse(response =>
-    response.url().endsWith('/api/preferences') &&
-    response.request().method() === 'PUT'
-  );
-  await page.locator('#savePrefs').click();
-  expect((await saved).status()).toBe(200);
-  await expect(page.locator('#toast')).toHaveText('Einstellungen gespeichert');
-  await page.locator('#logout').click();
-  await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');
+  // Demo fixtures are deliberately open; privacy-restricted behavior belongs in
+  // separate negative tests, never in the baseline communication accounts.
+  for (const [email, name] of [
+    ['anna@bottomupparti.local', 'Anna'],
+    ['lisa@bottomupparti.local', 'Lisa'],
+    ['max@bottomupparti.local', 'Max']
+  ]) {
+    await visibleLogin(page, email, name);
+    await page.locator('#identityButton').click();
+    for (const selector of [
+      '#profileVisibility', '#bioVisibility', '#placeVisibility',
+      '#membershipsVisibility', '#interestsVisibility', '#projectsVisibility',
+      '#attendanceVisibility', '#sharedConnectionsVisibility',
+      '#profileActivityVisibility', '#profileActivityDefaultVisibility',
+      '#followsVisibility', '#createdContentVisibility'
+    ]) await page.locator(selector).selectOption('public');
+    await page.locator('#dmPermission').selectOption('all');
+    await page.locator('#groupInvites').selectOption('all');
+    await page.locator('#allowFollowers').check();
+    const saved = page.waitForResponse(response =>
+      response.url().endsWith('/api/preferences') &&
+      response.request().method() === 'PUT'
+    );
+    await page.locator('#savePrefs').click();
+    expect((await saved).status()).toBe(200);
+    await expect(page.locator('#toast')).toHaveText('Einstellungen gespeichert');
+    await page.locator('#logout').click();
+    await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');
+  }
 
   await visibleLogin(page, 'max@bottomupparti.local', 'Max');
   await page.context().storageState({ path: authFile });
