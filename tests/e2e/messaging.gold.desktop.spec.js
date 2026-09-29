@@ -3,6 +3,28 @@ const { waitForApp, loginAsMax, go, uniqueName, captureRuntimeFailures, openIden
 
 test.setTimeout(30_000);
 
+test('Chat-Eingabe bleibt bei fehlgeschlagener Lesebestätigung sichtbar und nutzbar', async ({ page }) => {
+  await page.setViewportSize({ width: 1114, height: 900 });
+  await loginAsMax(page);
+  await page.route(/\\/api\\/messages\\/conversations\\/[^/]+\\/read$/, route =>
+    route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Zu viele Anfragen.' }) })
+  );
+  await go(page, 'messages');
+  await page.locator('#createConversation').click();
+  await page.locator('#conversationPeople').selectOption('u-anna');
+  await page.locator('#saveConversation').click();
+  await expect(page.locator('#messageComposer')).toBeVisible();
+  await expect(page.locator('#messageBody')).toBeInViewport();
+  const body = uniqueName('Eingabe trotz Read-Fehler');
+  await page.locator('#messageBody').fill(body);
+  await page.locator('#messageComposer button[type="submit"]').click();
+  await expect(page.locator('#messageThread')).toContainText(body);
+  await page.locator('#backToConversations').evaluate(button => button.click());
+  await page.locator('#conversationList [data-conversation]').filter({ hasText: 'Anna' }).first().click();
+  await expect(page.locator('#messageComposer')).toBeVisible();
+  await expect(page.locator('#messageBody')).toBeInViewport();
+});
+
 test('Öffentliches Profil: Nachricht aus Personenansicht zwischen zwei echten Konten', async ({ page, browser }) => {
   const guardMax = captureRuntimeFailures(page);
   await loginAsMax(page);
