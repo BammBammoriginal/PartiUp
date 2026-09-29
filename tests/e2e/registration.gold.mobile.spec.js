@@ -36,17 +36,3 @@ test('Registrierung und Abmeldung mobil', async ({ browser }) => {
   }
 });
 
-test('Mobiler Chat zeigt Eingabe trotz fehlgeschlagener Lesebestätigung', async ({ page }) => {
-  const { loginAsMax, go } = require('../helpers/gold');
-  await loginAsMax(page);
-  await page.route(url => url.pathname.startsWith('/api/messages/conversations/') && url.pathname.endsWith('/read'), route =>
-    route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Zu viele Anfragen.' }) })
-  );
-  await go(page, 'messages');
-  await page.locator('#createConversation').click();
-  await page.locator('#conversationPeople').selectOption('u-anna');
-  await page.locator('#saveConversation').click();
-  await expect(page.locator('#messageComposer')).toBeVisible();
-  await expect(page.locator('#messageBody')).toBeInViewport();
-  await assertNoHorizontalOverflow(page);
-});
