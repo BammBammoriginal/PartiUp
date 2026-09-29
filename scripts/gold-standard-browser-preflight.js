@@ -10,6 +10,7 @@ const appHelper = fs.readFileSync('tests/helpers/app.js', 'utf8');
 const app = fs.readFileSync('public/app.js', 'utf8');
 const css = fs.readFileSync('public/style.css', 'utf8');
 const server = fs.readFileSync('server/server.js', 'utf8');
+const database = fs.readFileSync('server/db.js', 'utf8');
 const regressions = fs.readFileSync('tests/integration/gold-regressions.integration.js', 'utf8');
 const privacyLifecycle = fs.readFileSync('tests/integration/privacy-data-lifecycle.integration.js', 'utf8');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -30,7 +31,7 @@ const checks = [
   ['authentication setup has dedicated timeout', /setup\.setTimeout\(20_000\)/.test(auth)],
   ['real session cookie assertion', /bup_session/.test(auth)],
   ['no test login bypass', !/test-login|qa-login|login-test/i.test(auth + config)],
-  ['public communication fixtures use real accounts', ['anna@bottomupparti.local','lisa@bottomupparti.local','max@bottomupparti.local'].every(email => auth.includes(email)) && /#profileVisibility/.test(auth) && /selectOption\('public'\)/.test(auth) && /#dmPermission/.test(auth) && /selectOption\('all'\)/.test(auth) && /#savePrefs/.test(auth)],
+  ['public communication fixtures use real accounts', ['u-max','u-anna','u-lisa'].every(id => database.includes(id)) && /demoVisibilityFields/.test(database) && /dm_permission='all'/.test(database) && /group_invites='all'/.test(database) && /\/api\/users\/\$\{id\}/.test(auth)],
   ['runtime page errors captured', /pageerror/.test(helper)],
   ['runtime failed requests captured', /requestfailed/.test(helper)],
   ['runtime server errors captured', /status\(\)\s*>=\s*500/.test(helper)],
