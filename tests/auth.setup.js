@@ -29,34 +29,10 @@ setup('authenticate once for QA suite', async ({ page }) => {
   await expect(page.locator('#mainContent')).toBeAttached();
   await expect(page.locator('#friendCount')).not.toHaveText('–');
 
-  // Demo fixtures are deliberately open; privacy-restricted behavior belongs in
-  // separate negative tests, never in the baseline communication accounts.
-  for (const [email, name] of [
-    ['anna@bottomupparti.local', 'Anna'],
-    ['lisa@bottomupparti.local', 'Lisa'],
-    ['max@bottomupparti.local', 'Max']
-  ]) {
-    await visibleLogin(page, email, name);
-    await page.locator('#identityButton').click();
-    for (const selector of [
-      '#profileVisibility', '#bioVisibility', '#placeVisibility',
-      '#membershipsVisibility', '#interestsVisibility', '#projectsVisibility',
-      '#attendanceVisibility', '#sharedConnectionsVisibility',
-      '#profileActivityVisibility', '#profileActivityDefaultVisibility',
-      '#followsVisibility', '#createdContentVisibility'
-    ]) await page.locator(selector).selectOption('public');
-    await page.locator('#dmPermission').selectOption('all');
-    await page.locator('#groupInvites').selectOption('all');
-    await page.locator('#allowFollowers').check();
-    const saved = page.waitForResponse(response =>
-      response.url().endsWith('/api/preferences') &&
-      response.request().method() === 'PUT'
-    );
-    await page.locator('#savePrefs').click();
-    expect((await saved).status()).toBe(200);
-    await expect(page.locator('#toast')).toHaveText('Einstellungen gespeichert');
-    await page.locator('#logout').click();
-    await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');
+  // The built-in demo accounts are public in a newly seeded QA database.
+  for (const id of ['u-anna', 'u-lisa']) {
+    const profile = await page.request.get(`/api/users/${id}`);
+    expect(profile.status()).toBe(200);
   }
 
   await visibleLogin(page, 'max@bottomupparti.local', 'Max');
