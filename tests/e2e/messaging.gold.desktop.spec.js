@@ -6,7 +6,7 @@ test.setTimeout(30_000);
 test('Chat-Eingabe bleibt bei fehlgeschlagener Lesebestätigung sichtbar und nutzbar', async ({ page }) => {
   await page.setViewportSize({ width: 1114, height: 900 });
   await loginAsMax(page);
-  await page.route(/\\/api\\/messages\\/conversations\\/[^/]+\\/read$/, route =>
+  await page.route(url => url.pathname.startsWith('/api/messages/conversations/') && url.pathname.endsWith('/read'), route =>
     route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Zu viele Anfragen.' }) })
   );
   await go(page, 'messages');
