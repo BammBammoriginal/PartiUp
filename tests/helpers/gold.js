@@ -14,7 +14,7 @@ function captureRuntimeFailures(page) {
     if (!/ERR_ABORTED/i.test(reason)) failures.push(`requestfailed: ${request.method()} ${request.url()} (${reason})`);
   });
   page.on('response', response => {
-    if (response.status() >= 500) failures.push(`response ${response.status()}: ${response.request().method()} ${response.url()}`);
+    if (response.status() >= 500 || response.status() === 429) failures.push(`response ${response.status()}: ${response.request().method()} ${response.url()}`);
   });
   return {
     failures,

@@ -134,6 +134,14 @@ function check(name, condition, detail = '') {
     const preview = await request(max, 'GET', '/api/profile-preview/network');
     check('Server-computed privacy preview works', preview.status === 200, `HTTP ${preview.status}`);
 
+    // Privacy-negative fixture: demo identities are public by default, so
+    // explicitly restrict Max only for the pending-request boundary checks.
+    const privateMax = await request(max, 'PUT', '/api/preferences', {
+      profile_visibility: 'private', dm_permission: 'all', group_invites: 'all',
+      notify_comments: true, notify_mentions: true, notify_messages: true, notify_events: true
+    });
+    check('Private-profile boundary fixture is active', privateMax.status === 200);
+
     await request(max, 'POST', '/api/friends/u-anna/request', {});
     const annaPending = await request(anna, 'GET', '/api/friends');
     const incomingMax = annaPending.data?.incoming?.find(person => person.id === 'u-max');
@@ -163,6 +171,11 @@ function check(name, condition, detail = '') {
     const lisaPrivateRequest = await request(lisa, 'POST', '/api/friends/u-max/request', {});
     const lisaPrivateNetwork = await request(lisa, 'GET', '/api/friends');
     check('Outgoing request to hidden profile cannot enumerate its name', lisaPrivateRequest.status === 201 && lisaPrivateNetwork.data.outgoing.some(person => person.id === 'u-max' && person.name === 'Privates Profil' && !('bio' in person) && !('place' in person)));
+    const publicMax = await request(max, 'PUT', '/api/preferences', {
+      profile_visibility: 'public', dm_permission: 'all', group_invites: 'all',
+      notify_comments: true, notify_mentions: true, notify_messages: true, notify_events: true
+    });
+    check('Demo profile is public again after privacy boundary test', publicMax.status === 200);
     await request(lisa, 'DELETE', '/api/friends/u-max');
     const annaNetwork = await request(anna, 'GET', '/api/bootstrap');
     check('Confirmed friends may communicate without a shared community', (annaNetwork.data.message_recipients || []).some(person => person.id === 'u-lisa'));

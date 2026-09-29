@@ -7,7 +7,7 @@ const checks=[
  ['Desktop-Sidebar enthält Chats', /<aside[^>]*id="appSidebar"[\s\S]*?<nav>[\s\S]*?data-page="messages"[\s\S]*?<span>Chats<\/span>/i.test(index)],
  ['Mobile Bottom Navigation enthält Chats', /<nav class="mobile-bottom-nav"[\s\S]*?data-page="messages"[\s\S]*?<small>Chats<\/small>/i.test(index)],
  ['Messages-Seite existiert', /<section id="messages" class="page">/.test(index)],
- ['go(messages) lädt Unterhaltungen', /if\(p==='messages'\)loadConversations\(\)/.test(app)],
+ ['go(messages) lädt Unterhaltungen', /if\(p==='messages'&&!skipMessagesLoad\)loadConversations\(\)/.test(app)],
  ['Desktop-Smoke testet messages', /'messages'/.test(smoke)]
 ];
 let fail=0;

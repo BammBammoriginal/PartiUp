@@ -11,7 +11,7 @@ const {getFederationEntity,upsertRemoteObject,tombstoneRemoteObject,getRemoteObj
 const {AS,remoteFetchPolicy,baseUrl,actorId,spaceActorId,actorDocument,spaceActorDocument,orderedCollection,verifyLegacySignature,deliverActivity,deliverSpaceActivity,ensureActorKey,ensureFederationHandle,ensureSpaceFederationHandle,userFederationSettings,isUserFederationEnabled,userIdForHandle,spaceIdForHandle,isPublicObject,stripRemoteHtml,noteForLocalPost,noteForLocalComment,createActivityForNote,updateActivityForNote,deleteActivityForObject,announceActivityForGroup,queueActivityForFollowers,queueActivityForSpaceFollowers,flushDeliveryQueue,flushSpaceDeliveryQueue,federationDecisionForPost,eventFederationDecision,eventForLocalEvent,createActivityForEvent,joinActivityForEvent,leaveActivityForEvent,attendanceDecisionActivity,updateActivityForEvent,deleteActivityForEvent,queueEventFederation,isoDateTimeWithZone,fetchActor,safeHttpsRequest} = require('./federation/protocol');
 const multer = require('multer');
 const sharp = require('sharp');
-const {db, bootstrap, ensureTopic, communityDetail, eventDetail, projectDetail, participationDetail, getUserSafe, userProfile, listPeople, verifyPassword, followsForUser,friendshipPair,friendshipRelation,friendshipNetwork,firstSharedCommunity,profileActivityTarget,profileActivityForUser,prefAllows,stricterVisibility,ensureObjectModules,canRequestEventAttendance,canViewEventRow,canViewProjectRow,canViewParticipation,participationCanInteract,canRequestParticipationAccess,listParticipation,listProjects,listEvents} = require('./db');
+const {db, bootstrap, ensureTopic, communityDetail, eventDetail, projectDetail, participationDetail, getUserSafe, userProfile, listPeople, verifyPassword, hashPassword, followsForUser,friendshipPair,friendshipRelation,friendshipNetwork,firstSharedCommunity,profileActivityTarget,profileActivityForUser,prefAllows,stricterVisibility,ensureObjectModules,canRequestEventAttendance,canViewEventRow,canViewProjectRow,canViewParticipation,participationCanInteract,canRequestParticipationAccess,listParticipation,listProjects,listEvents} = require('./db');
 const {buildPrivacyExport,deleteAccountData,processPrivacyFileDeletionQueue,queueFile} = require('./privacy');
 const {federationInboxIpLimit,enforceActorHostLimit,isRecentReplay,rememberReplay,publicConfig:federationSecurityConfig} = require('./federation/security');
 const federationKeyStore=require('./federation/key-store');
@@ -122,7 +122,7 @@ function rateLimit(name,limit,windowMs){return (req,res,next)=>{
   res.setHeader('X-RateLimit-Limit',String(limit));
   if(b.n>limit){res.setHeader('Retry-After',String(Math.ceil((b.reset-now)/1000)));return res.status(429).json({error:'Zu viele Anfragen. Bitte kurz warten.'})}next()
 }}
-const writeLimit=rateLimit('write',180,60_000), loginLimit=rateLimit('login',10,15*60_000), deleteAccountLimit=rateLimit('delete-account',5,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
+const readLimit=rateLimit('read',1200,60_000), writeLimit=rateLimit('write',180,60_000), loginLimit=rateLimit('login',10,15*60_000), registrationLimit=rateLimit('registration',8,15*60_000), deleteAccountLimit=rateLimit('delete-account',5,15*60_000), federationMediaLimit=rateLimit('federation-media',120,60_000);
 function text(value,max=5000){return String(value??'').trim().slice(0,max)}
 const SAFE_INPUT_ICONS=new Set(['✦','◆','◈','☑','♻️','🇩🇪','🌳','🏙️','🏛️','📋','📍','🗳️','🚲']);
 function validatedIcon(value,fallback){if(value===undefined||value===null||value==='')return fallback;const v=String(value).trim();return SAFE_INPUT_ICONS.has(v)?v:null}
@@ -400,6 +400,40 @@ app.get('/api/bootstrap',(req,res)=>{const userId=currentUserId(req),data=bootst
 app.get('/api/me',(req,res)=>res.json({user:getUserSafe(currentUserId(req))}));
 app.get('/api/security/csrf',(req,res)=>res.json({csrf:csrfFor(req,res)}));
 
+app.post('/api/register',registrationLimit,csrfGuard,(req,res)=>{
+  if(currentUserId(req))return res.status(409).json({error:'Bitte zuerst abmelden.'});
+  const name=validatedUserText(req.body?.name,60,{required:true});
+  const email=typeof req.body?.email==='string'?req.body.email.trim().toLowerCase():'';
+  const password=req.body?.password;
+  if(!name||[...name].length<2||typeof req.body?.name!=='string'||req.body.name.length>60)
+    return res.status(400).json({error:'Bitte einen Namen mit 2 bis 60 Zeichen eingeben.'});
+  if(email.length>254||!(/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(email)))
+    return res.status(400).json({error:'Bitte eine gültige E-Mail-Adresse eingeben.'});
+  if(typeof password!=='string'||password.length<12||password.length>128)
+    return res.status(400).json({error:'Das Passwort muss 12 bis 128 Zeichen lang sein.'});
+  // A generic conflict message avoids confirming whether an address is registered.
+  if(db.prepare('SELECT 1 FROM users WHERE lower(email)=?').get(email))
+    return res.status(409).json({error:'Registrierung mit diesen Angaben nicht möglich.'});
+  const id='u-'+crypto.randomUUID(), token=crypto.randomBytes(32).toString('hex');
+  const nextCsrf=crypto.randomBytes(24).toString('hex');
+  const {salt,hash}=hashPassword(password);
+  try{
+    db.transaction(()=>{
+      db.prepare('INSERT INTO users(id,name,email,avatar,trust_level,password_salt,password_hash) VALUES (?,?,?,?,?,?,?)')
+        .run(id,name,email,[...name][0].toUpperCase(),1,salt,hash);
+      db.prepare('INSERT INTO user_preferences(user_id) VALUES (?)').run(id);
+      db.prepare("INSERT INTO sessions(token,user_id,expires_at) VALUES (?,?,datetime('now','+7 days'))")
+        .run(sessionKey(token),id);
+    })();
+  }catch(err){
+    if(err.code?.startsWith('SQLITE_CONSTRAINT'))return res.status(409).json({error:'Registrierung mit diesen Angaben nicht möglich.'});
+    throw err;
+  }
+  res.append('Set-Cookie',`bup_session=${token}; ${cookieFlags(true)}Max-Age=604800`);
+  res.append('Set-Cookie',`bup_csrf=${nextCsrf}; ${cookieFlags(false)}Max-Age=86400`);
+  res.status(201).json({user:getUserSafe(id),csrf:nextCsrf});
+});
+
 app.post('/api/login',loginLimit,csrfGuard,(req,res)=>{
   const {email,password}=req.body||{};
   const u=db.prepare("SELECT * FROM users WHERE lower(email)=lower(?) AND COALESCE(account_status,'active')='active'").get(String(email||''));
@@ -416,7 +450,8 @@ app.post('/api/login',loginLimit,csrfGuard,(req,res)=>{
   res.append('Set-Cookie',`bup_csrf=${nextCsrf}; ${cookieFlags(false)}Max-Age=86400`);
   res.json({user:getUserSafe(u.id),csrf:nextCsrf});
 });
-app.use('/api',csrfGuard,writeLimit);
+app.use('/api',csrfGuard,(req,res,next)=>
+  (['GET','HEAD','OPTIONS'].includes(req.method)?readLimit:writeLimit)(req,res,next));
 app.post('/api/logout',(req,res)=>{const token=cookies(req).bup_session;if(token)db.prepare('DELETE FROM sessions WHERE token=?').run(sessionKey(token));res.append('Set-Cookie',`bup_session=; ${cookieFlags(true)}Max-Age=0`);res.json({ok:true});});
 
 app.get('/api/notifications',requireUser,(req,res)=>{res.json({items:db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY datetime(created_at) DESC LIMIT 50').all(req.userId),unread:db.prepare('SELECT COUNT(*) n FROM notifications WHERE user_id=? AND read_at IS NULL').get(req.userId).n})});

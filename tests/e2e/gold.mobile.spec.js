@@ -231,6 +231,32 @@ test.describe('Goldstandard Mobile 412x915', () => {
     }
   });
 
+  test('Chat-Eingabe mobil auch ohne Lesebestätigung sichtbar', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: 'http://127.0.0.1:3100',
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true,
+      storageState: { cookies: [], origins: [] }
+    });
+    try {
+      const chatPage = await context.newPage();
+      await loginAsMax(chatPage);
+      await chatPage.route(url => url.pathname.startsWith('/api/messages/conversations/') && url.pathname.endsWith('/read'), route =>
+        route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Zu viele Anfragen.' }) })
+      );
+      await go(chatPage, 'messages');
+      await chatPage.locator('#createConversation').click();
+      await chatPage.locator('#conversationPeople').selectOption('u-anna');
+      await chatPage.locator('#saveConversation').click();
+      await expect(chatPage.locator('#messageComposer')).toBeVisible();
+      await expect(chatPage.locator('#messageBody')).toBeInViewport();
+      await assertNoHorizontalOverflow(chatPage);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('Kontolöschung bleibt mobil vollständig kontrollierbar', async ({ page }) => {
     await openAccountDeletion(page);
     await assertNoHorizontalOverflow(page);
