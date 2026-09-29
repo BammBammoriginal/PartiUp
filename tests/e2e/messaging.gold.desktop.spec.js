@@ -14,6 +14,7 @@ test('Chat-Eingabe bleibt bei fehlgeschlagener Lesebestätigung sichtbar und nut
   await page.locator('#conversationPeople').selectOption('u-anna');
   await page.locator('#saveConversation').click();
   await expect(page.locator('#messageComposer')).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator('#messageBody')).toBeInViewport();
   const body = uniqueName('Eingabe trotz Read-Fehler');
   await page.locator('#messageBody').fill(body);
@@ -22,6 +23,7 @@ test('Chat-Eingabe bleibt bei fehlgeschlagener Lesebestätigung sichtbar und nut
   await page.locator('#backToConversations').evaluate(button => button.click());
   await page.locator('#conversationList [data-conversation]').filter({ hasText: 'Anna' }).first().click();
   await expect(page.locator('#messageComposer')).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator('#messageBody')).toBeInViewport();
 });
 
