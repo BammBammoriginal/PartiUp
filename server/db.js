@@ -881,6 +881,23 @@ function seed() {
     createUser('u-max','Max','max@bottomupparti.local','M');
     createUser('u-anna','Anna','anna@bottomupparti.local','A');
     createUser('u-lisa','Lisa','lisa@bottomupparti.local','L');
+    // Explicitly open only the built-in demo identities in newly seeded databases.
+    // Account defaults and existing databases remain privacy-preserving.
+    const demoVisibilityFields = [
+      'profile_visibility','bio_visibility','place_visibility',
+      'memberships_visibility','interests_visibility','projects_visibility',
+      'event_attendance_visibility','shared_connections_visibility',
+      'profile_activity_visibility','profile_activity_default_visibility',
+      'follows_visibility','created_content_visibility'
+    ];
+    const openDemo = db.prepare(`UPDATE user_preferences SET
+      ${demoVisibilityFields.map(field => `${field}='public'`).join(', ')},
+      dm_permission='all',group_invites='all',allow_followers=1 WHERE user_id=?`);
+    for (const id of ['u-max','u-anna','u-lisa']) {
+      db.prepare('INSERT OR IGNORE INTO user_preferences(user_id) VALUES (?)').run(id);
+      openDemo.run(id);
+    }
+
     db.prepare('UPDATE users SET trust_level=? WHERE id=?').run(2,'u-max');
     db.prepare('UPDATE users SET trust_level=? WHERE id=?').run(3,'u-anna');
     db.prepare('UPDATE users SET trust_level=? WHERE id=?').run(3,'u-lisa');
