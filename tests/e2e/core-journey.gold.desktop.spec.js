@@ -62,7 +62,7 @@ test('Space entdecken, beitreten, Beitrag schreiben und Beteiligung starten', as
     await member.locator('.participation-item').filter({ hasText: participation }).click();
     await member.locator('[data-ptab="poll"]').click();
     await member.locator('.vote-option[data-pquestion]').filter({ hasText: 'Garten' }).click();
-    await expect(member.locator('.vote-option.active')).toContainText('Garten');
+    await expect(member.locator('.vote-option.selected')).toContainText('Garten');
     await assertNoHorizontalOverflow(member);
     memberGuard.assertClean();
   } finally { await context.close(); }
