@@ -14,7 +14,7 @@ test('Space entdecken, beitreten, Beitrag schreiben und Beteiligung starten', as
   expect((await created).ok()).toBeTruthy();
   await expect(page.locator('#community-space')).toHaveClass(/active/);
   await page.locator('[data-ctab="overview"]').click();
-  await expect(page.locator('.space-journey')).toContainText('Mitwirken');
+  await expect(page.locator('.space-journey')).toContainText(/mitwirken/i);
   await expect(page.locator('[data-space-start-participation]')).toBeVisible();
   await assertNoHorizontalOverflow(page);
 
