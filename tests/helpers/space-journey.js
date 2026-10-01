@@ -63,7 +63,7 @@ test('Space entdecken, beitreten, Beitrag schreiben und Beteiligung starten', as
     await expect(member.locator('#communitySpaceContent')).toContainText(post);
     await member.locator('[data-ctab="overview"]').click();
     await member.locator('[data-space-next-tab="participation"]').click();
-    await member.locator('#communitySpaceContent .participation-item').filter({ hasText: participation }).click();
+    await member.locator('#communitySpaceContent .participation-item').filter({ hasText: participation }).locator('h3').click();
     await member.locator('[data-ptab="poll"]').click();
     await member.locator('.vote-option[data-pquestion]').filter({ hasText: 'Garten' }).click();
     await expect(member.locator('.vote-option.selected')).toContainText('Garten');
