@@ -164,3 +164,34 @@ test('Zwei Konten sichtbar registrieren und nach Freigabe Nachrichten austausche
     await second.close();
   }
 });
+
+test('Chatfenster wächst mit Inhalt und hält lange Verläufe scrollbar', async ({ page }) => {
+  await page.setViewportSize({ width: 1114, height: 900 });
+  await loginAsMax(page);
+  await go(page, 'messages');
+  await page.locator('#createConversation').click();
+  await page.locator('#conversationType').selectOption('group');
+  await page.locator('#conversationTitle').fill(uniqueName('Adaptive Gruppe'));
+  const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+  await page.locator('#conversationPeople').selectOption(recipient);
+  await page.locator('#saveConversation').click();
+  await expect(page.locator('#messageComposer')).toBeVisible();
+  const emptyHeight = (await page.locator('#messageThread').boundingBox()).height;
+  expect(emptyHeight).toBeLessThan(440);
+  for (let i = 0; i < 5; i++) {
+    const body = uniqueName('Verlauf ' + i) + ' ' + 'Eine längere Nachricht für die adaptive Chatansicht. '.repeat(10);
+    await page.locator('#messageBody').fill(body);
+    await page.locator('#messageComposer button[type="submit"]').click();
+    await expect(page.locator('#messageThread')).toContainText(body);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const filledHeight = (await page.locator('#messageThread').boundingBox()).height;
+  expect(filledHeight).toBeGreaterThan(emptyHeight);
+  const history = await page.locator('#messagesScroll').evaluate(el => ({
+    height: el.clientHeight, content: el.scrollHeight, overflow: getComputedStyle(el).overflowY
+  }));
+  expect(history.content).toBeGreaterThan(history.height);
+  expect(history.overflow).toBe('auto');
+  await expect(page.locator('#messageBody')).toBeInViewport();
+  await expect(page.locator('#messageComposer button[type="submit"]')).toBeInViewport();
+});
