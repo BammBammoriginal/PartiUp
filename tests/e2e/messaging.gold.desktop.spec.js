@@ -172,7 +172,8 @@ test('Chatfenster wächst mit Inhalt und hält lange Verläufe scrollbar', async
   await page.locator('#createConversation').click();
   await page.locator('#conversationType').selectOption('group');
   await page.locator('#conversationTitle').fill(uniqueName('Adaptive Gruppe'));
-  await page.locator('#conversationPeople').selectOption('u-lisa');
+  const recipient = await page.locator('#conversationPeople option').first().getAttribute('value');
+  await page.locator('#conversationPeople').selectOption(recipient);
   await page.locator('#saveConversation').click();
   await expect(page.locator('#messageComposer')).toBeVisible();
   const emptyHeight = (await page.locator('#messageThread').boundingBox()).height;
