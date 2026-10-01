@@ -26,6 +26,7 @@ module.exports = function registerAccountTransition() {
       const gear = page.locator('[data-ctab="admin"]');
       await expect(gear).toBeVisible();
       await gear.click();
+      await page.locator('[data-admin-jump="rights"]').click();
       await expect(page.locator('[data-permission-box]')).toContainText('Personen & Rollen');
       await assertNoHorizontalOverflow(page);
       await openIdentity(page);
