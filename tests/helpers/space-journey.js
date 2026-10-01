@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { loginAsMax, waitForApp, go, uniqueName, captureRuntimeFailures, openIdentity, openCreation, fillObjectForm, assertNoHorizontalOverflow } = require('./gold');
+const { loginAsMax, waitForApp, go, uniqueName, captureRuntimeFailures, openIdentity, closeMobileDrawer, openCreation, fillObjectForm, assertNoHorizontalOverflow } = require('./gold');
 
 module.exports = function registerSpaceJourney() {
   test.setTimeout(60_000);
@@ -25,10 +25,13 @@ test('Space entdecken, beitreten, Beitrag schreiben und Beteiligung starten', as
     const memberGuard = captureRuntimeFailures(member);
     await waitForApp(member);
     await openIdentity(member);
-    await member.locator('#loginEmail').fill('anna@bottomupparti.local');
-    await member.locator('#loginPassword').fill('demo123');
-    await member.locator('#login').click();
-    await expect(member.locator('#userName')).toHaveText('Anna');
+    await member.locator('#showRegistration').click();
+    await member.locator('#registerName').fill('Neues Mitglied');
+    await member.locator('#registerEmail').fill(`journey-${Date.now()}@example.test`);
+    await member.locator('#registerPassword').fill('Sicheres-Testpasswort-2026');
+    await member.locator('#register').click();
+    await expect(member.locator('#userName')).toHaveText('Neues Mitglied');
+    if (await member.locator('.app').evaluate(el => el.classList.contains('menu-open'))) await closeMobileDrawer(member);
     await go(member, 'discover');
     await member.locator('[data-discover-tab="communities"]').click();
     await member.locator('#search').fill(name);
@@ -60,7 +63,7 @@ test('Space entdecken, beitreten, Beitrag schreiben und Beteiligung starten', as
     await expect(member.locator('#communitySpaceContent')).toContainText(post);
     await member.locator('[data-ctab="overview"]').click();
     await member.locator('[data-space-next-tab="participation"]').click();
-    await member.locator('.participation-item').filter({ hasText: participation }).click();
+    await member.locator('#communitySpaceContent .participation-item').filter({ hasText: participation }).click();
     await member.locator('[data-ptab="poll"]').click();
     await member.locator('.vote-option[data-pquestion]').filter({ hasText: 'Garten' }).click();
     await expect(member.locator('.vote-option.selected')).toContainText('Garten');
