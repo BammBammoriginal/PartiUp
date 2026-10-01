@@ -51,6 +51,7 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
 
     const privateCommunity=await status('Owner can create private community',req(max,'POST','/api/communities',{name:'Private QA Space',type:'Community',places:['erl'],topics:['Demokratie'],visibility:'private',join_policy:'invite'}),201);
     const privateId=privateCommunity.data.id;
+    await status('Unrelated account cannot read private Space roles',req(anna,'GET',`/api/permissions/community/${privateId}`),404);
     const privatePost=await status('Owner can create post in private community',req(max,'POST',`/api/communities/${privateId}/posts`,{body:'PRIVATE-QA-MARKER'}),201);
     check('Private post was created',!!privatePost.data.postId,String(privatePost.data.postId||''));
     const anonBootstrap=await status('Anonymous bootstrap loads',req(anon,'GET','/api/bootstrap'),200);
