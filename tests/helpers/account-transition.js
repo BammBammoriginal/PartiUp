@@ -1,11 +1,35 @@
 const { test, expect } = require('@playwright/test');
-const { waitForApp, openIdentity, closeMobileDrawer, go, fillObjectForm, openCreation, assertNoHorizontalOverflow, captureRuntimeFailures } = require('./gold');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { waitForApp, openIdentity, closeMobileDrawer, fillObjectForm, openCreation, assertNoHorizontalOverflow, captureRuntimeFailures } = require('./gold');
 
 module.exports = function registerAccountTransition() {
   test.setTimeout(30_000);
   test('Kontowechsel entfernt Verwaltung und private Ansichten; Anmeldung per Enter', async ({ browser, viewport }) => {
-    const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3100', viewport, storageState: { cookies: [], origins: [] } });
+    // A fresh process gives this scenario its own database and normal rate limits.
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'partiup-account-transition-'));
+    const port = 33000 + Math.floor(Math.random() * 1000);
+    const baseURL = `http://127.0.0.1:${port}`;
+    const server = spawn(process.execPath, ['server/server.js'], {
+      cwd: process.cwd(),
+      env: { ...process.env, NODE_ENV: 'test', PORT: String(port), BIND_HOST: '127.0.0.1', BUP_DB_PATH: path.join(directory, 'test.db'), BUP_SEED_DEMO: '1' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let output = '', context;
+    server.stdout.on('data', data => { output += data; });
+    server.stderr.on('data', data => { output += data; });
+    server.on('error', error => { output += error.message; });
     try {
+      let ready = false;
+      for (let attempt = 0; attempt < 80; attempt++) {
+        try { if ((await fetch(baseURL + '/api/health')).ok) { ready = true; break; } } catch {}
+        if (server.exitCode !== null) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (!ready) throw new Error('Isolated test server did not start: ' + output.slice(-3000));
+      context = await browser.newContext({ baseURL, viewport, storageState: { cookies: [], origins: [] } });
       const page = await context.newPage();
       const guard = captureRuntimeFailures(page);
       await waitForApp(page);
@@ -49,6 +73,18 @@ module.exports = function registerAccountTransition() {
       await expect(page.locator('#home')).toHaveClass(/active/);
       await expect(page.locator('#communitySpaceContent')).toBeEmpty();
       guard.assertClean();
-    } finally { await context.close(); }
+    } finally {
+      try { if (context) await context.close(); }
+      finally {
+        if (server.exitCode === null) {
+          server.kill('SIGTERM');
+          await new Promise(resolve => {
+            const timer = setTimeout(() => { server.kill('SIGKILL'); resolve(); }, 2500);
+            server.once('exit', () => { clearTimeout(timer); resolve(); });
+          });
+        }
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    }
   });
 };
