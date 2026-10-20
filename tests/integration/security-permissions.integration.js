@@ -143,6 +143,10 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     process.env.PARTIUP_BASE_URL=publicBase;
     const protocol=require('../../server/federation/protocol');
     try{
+      await status('Owner grants event attendance management only',req(max,'PUT',`/api/permissions/event/${event.data.id}/role/u-anna`,{role:'moderator'}),200);
+      await status('Attendance management cannot publish event externally',req(anna,'PUT',`/api/events/${event.data.id}/federation`,{state:'enabled'}),403);
+      await status('Owner explicitly grants event publication control',req(max,'PUT',`/api/permissions/event/${event.data.id}/overrides`,{role:'moderator',permission:'space.manage_access',effect:'allow'}),200);
+      await status('Explicit publication permission enables event configuration',req(anna,'PUT',`/api/events/${event.data.id}/federation`,{state:'disabled'}),200);
       const image=await require('sharp')({create:{width:2,height:2,channels:4,background:{r:1,g:2,b:3,alpha:1}}}).png().toBuffer();
       async function upload(jar,url,fields={},buffer=image){
         const form=new FormData();for(const [key,value] of Object.entries(fields))form.append(key,value);

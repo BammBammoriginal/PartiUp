@@ -61,6 +61,8 @@ module.exports = function registerAccountTransition() {
       const csrf=(await (await context.request.get('/api/security/csrf')).json()).csrf;
       const granted=await context.request.put(`/api/permissions/community/${communityId}/overrides`,{headers:{'X-BUP-CSRF':csrf},data:{role:'member',permission:'space.edit_profile',effect:'allow'}});
       expect(granted.status()).toBe(200);
+      const eventResponse=await context.request.post('/api/events',{headers:{'X-BUP-CSRF':csrf},data:{name:'Editor event QA',places:['erl'],owner_space_id:communityId,communities:[communityId],start_at:'2026-10-20T18:00:00+02:00',end_at:'2026-10-20T20:00:00+02:00'}});
+      expect(eventResponse.status()).toBe(201);const editorEvent=await eventResponse.json();
       const editorContext=await browser.newContext({baseURL,viewport,storageState:{cookies:[],origins:[]}});
       try{
         const editor=await editorContext.newPage(),editorGuard=captureRuntimeFailures(editor);
@@ -77,6 +79,14 @@ module.exports = function registerAccountTransition() {
         await editor.locator('[data-admin-jump="setup"]').click();
         await expect(editor.locator('#saveSpaceProfile')).toBeVisible();
         await expect(editor.locator('#finishSpaceSetup')).toHaveCount(0);
+        await editor.locator('[data-ctab="events"]').click();
+        await editor.locator(`[data-event="${editorEvent.id}"]`).first().click();
+        await expect(editor.locator('#objectImageInput')).toHaveCount(0);
+        await editor.locator('[data-otab="admin"]').click();
+        await expect(editor.locator('#objectImageInput').locator('..')).toBeVisible();
+        await expect(editor.locator('#saveEventSchedule')).toBeVisible();
+        await expect(editor.locator('#saveEventFederation')).toHaveCount(0);
+        await expect(editor.locator('#saveObjectModules')).toHaveCount(0);
         await assertNoHorizontalOverflow(editor);editorGuard.assertClean();
       }finally{await editorContext.close()}
 

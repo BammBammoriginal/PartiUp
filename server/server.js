@@ -879,7 +879,7 @@ app.put('/api/events/:id/schedule',requireUser,(req,res)=>{
   const timezone=text(req.body?.timezone,80)||'Europe/Berlin';const label=text(req.body?.date_label,120)||start;db.prepare('UPDATE events SET start_at=?,end_at=?,timezone=?,date_label=? WHERE id=?').run(start,end,timezone,label,e.id);if(baseUrl())queueEventFederation(db,e.id,'Update');res.json(eventDetail(e.id,req.userId));
 });
 app.put('/api/events/:id/federation',requireUser,(req,res)=>{
-  const e=db.prepare('SELECT * FROM events WHERE id=?').get(req.params.id);if(!e)return res.status(404).json({error:'Veranstaltung nicht gefunden.'});if(!hasPermission(req.userId,'event',e.id,'event.manage_participants'))return res.status(403).json({error:'Keine Berechtigung.'});if(e.source!=='native')return res.status(400).json({error:'Externe Veranstaltungen werden von ihrer Quelle föderiert.'});
+  const e=db.prepare('SELECT * FROM events WHERE id=?').get(req.params.id);if(!e)return res.status(404).json({error:'Veranstaltung nicht gefunden.'});if(!hasPermission(req.userId,'event',e.id,'space.manage_access'))return res.status(403).json({error:'Keine Berechtigung.'});if(e.source!=='native')return res.status(400).json({error:'Externe Veranstaltungen werden von ihrer Quelle föderiert.'});
   const state=['inherit','enabled','disabled'].includes(req.body?.state)?req.body.state:null;if(!state)return res.status(400).json({error:'Ungültige Fediverse-Einstellung.'});db.prepare('UPDATE events SET federation_state=? WHERE id=?').run(state,e.id);const decision=eventFederationDecision(db,e.id);if(baseUrl()&&decision.allowed)queueEventFederation(db,e.id,'Update');res.json({ok:true,federation_state:state,decision});
 });
 app.put('/api/communities/:id/federation/remote-event-moderation',requireUser,(req,res)=>{
