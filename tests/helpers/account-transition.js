@@ -99,7 +99,7 @@ module.exports = function registerAccountTransition() {
         await expect(editor.locator('#saveSpaceProfile')).toBeVisible();
         await expect(editor.locator('#finishSpaceSetup')).toHaveCount(0);
         await editor.locator('[data-ctab="events"]').click();
-        await editor.locator(`#communitySpaceContent [data-event="${editorEvent.id}"]`).first().click();
+        await editor.locator(`#communitySpaceContent [data-event="${editorEvent.id}"] .grow > b`).click();
         await expect(editor.locator('#objectImageInput')).toHaveCount(0);
         await editor.locator('[data-otab="admin"]').click();
         await expect(editor.locator('#objectImageInput').locator('..')).toBeVisible();
