@@ -58,6 +58,8 @@ Abnahme erst nach dem vollständigen Lauf und Merge.
 
 | R22 | relevant – vor nächstem Release anpassen | Eine verspätete Profil-/Space-Antwort nach Reload konnte die neu gewählte Chatansicht wieder verdrängen; alte Profil-Hashes blieben bei Hauptnavigation bestehen. | Veraltete Navigationsantworten verwerfen und Hauptnavigation vom alten Hash lösen; deterministisch verzögerte echte Profilantwort auf Desktop/Mobil sowie bestehender Chat-Reload-/Reaktionstest. |
 
+| R23 | relevant – vor nächstem Release anpassen | Karten mit mehreren unabhängigen Aktionen hatten selbst eine Button-Rolle um weitere Buttons; zusätzliche Smoke-/Layouttests erwarteten frühere Trust-/Entdecken-Ansichten. | Native, per Tastatur bedienbare Titelaktionen getrennt von Follow-/Relationsaktionen; ganze Karten bleiben per Zeiger nutzbar. Vorhandene Info-/Für-dich-Ansichten und gezielte Titelaktionen prüfen. DOM-Negativtests und echter Enter-Test auf Desktop/Mobil. |
+
 ## Bereits korrekt abgedeckt und beibehalten
 
 - Serverseitige Passwortprüfung mit scrypt; zufällige, in der DB gehashte

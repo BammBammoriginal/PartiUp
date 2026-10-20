@@ -4,6 +4,15 @@ const { assertAuthenticated, go } = require('../helpers/app');
 test.describe('lightweight accessibility / DOM integrity gates', () => {
   test.beforeEach(async ({ page }) => assertAuthenticated(page));
 
+  test('profile card primary action is a native keyboard control',async({page})=>{
+    await go(page,'people');
+    const title=page.locator('#people-list .person-card button.card-primary').first();
+    await expect(title).toBeVisible();const name=await title.textContent();
+    await title.focus();await title.press('Enter');
+    await expect(page.locator('#person-space')).toHaveClass(/active/);
+    await expect(page.locator('#personSpaceContent h2')).toHaveText(name);
+  });
+
   test('no duplicate IDs on main screens', async ({ page }) => {
     for (const p of ['home','discover','communities','people','events','projects','participation']) {
       if (p !== 'home') await go(page,p);

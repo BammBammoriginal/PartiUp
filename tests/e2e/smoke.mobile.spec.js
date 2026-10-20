@@ -34,7 +34,7 @@ test.describe('mobile core smoke paths', () => {
     await go(page, 'projects');
     const project = page.locator('#projects-list .project-clickable').first();
     await expect(project).toBeVisible();
-    await project.click();
+    await project.locator('h3').click();
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
     await assertNoHorizontalOverflow(page);
   });
@@ -50,7 +50,8 @@ test.describe('mobile core smoke paths', () => {
     await assertNoHorizontalOverflow(page);
     await page.locator('[data-discover-tab="for-you"]').click();
     await expect(page.locator('#discoverCore')).toBeVisible();
-    await expect(page.locator('#discover-list')).toBeVisible();
+    await expect(page.locator('#discoverLanding')).toBeVisible();
+    await expect(page.locator('#discoverLanding .discover-preview-card').first()).toBeVisible();
   });
 
 });

@@ -352,3 +352,7 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{min-width:320px;o
 .space-nav-row{position:sticky;top:76px;z-index:4;background:var(--bg)}
 .space-nav-row .space-function-tabs{position:static}
 @media(max-width:850px){.space-nav-row{top:64px}}
+
+/* Primary card actions are native controls, separate from relationship actions. */
+button.card-primary{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:inherit;line-height:inherit;text-align:left;white-space:normal;max-width:100%;min-height:44px;border-radius:4px}
+button.card-primary:hover{text-decoration:underline}

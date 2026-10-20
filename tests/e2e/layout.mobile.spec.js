@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { assertAuthenticated, go, assertNoHorizontalOverflow } = require('../helpers/app');
 
 const views = [
-  ['discover', '#discover-list > *'],
+  ['discover', '#discoverLanding .discover-preview-card'],
   ['communities', '#communities-list .community'],
   ['events', '#events-list .event'],
   ['projects', '#projects-list .project-card'],
