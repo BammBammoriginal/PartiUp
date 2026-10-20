@@ -8,9 +8,30 @@ Beziehungsorientierte Beteiligungs- und Community-Plattform: Orte × Themen × C
 
 Abgeleitet von BottomUpParti v0.9.3 – deshalb heißen Env-Variablen, Cookies und die Standard-DB noch `BUP_*`, `bup_session`, `bottomupparti.db`. Diese Namen bewusst **nicht** umbenennen (`README-PARTIUP-P0.1.md`). Version kommt ausschließlich aus `package.json` (`version-preflight` verbietet hartcodierte Versionen in UI/Batch-Dateien).
 
+## Zielsetzung und Zielgruppe
+
+Funktionen wie Communities, Beteiligung, Veranstaltungen, Chats und Föderation gibt es bei anderen Anbietern längst. Das eigentliche Problem offener Alternativen ist, dass sie für normale Menschen wenig attraktiv, schwer zugänglich und schlecht erklärt sind. PartiUp richtet sich an Menschen **ohne Technik- oder Fachkenntnisse**. Sie nutzen heute Big-Tech-Apps, weil diese schnell und bequem sind, und wären offen für Alternativen, haben aber keine Zeit und keine Lust auf komplizierte Abläufe oder unattraktive Oberflächen. PartiUp will sich deshalb vor allem durch Attraktivität, Zugänglichkeit und Erklärbarkeit unterscheiden. Mehr Funktionen sind nicht das Ziel. (Nutzervorgabe vom 20.10.2026)
+
+Die vier festen Prämissen jedes Releases (`QA-RELEASE-PROCESS.md` §7):
+1. eine logische, schlanke, nachvollziehbare Grundstruktur;
+2. Interoperabilität und API-Readiness;
+3. DSGVO, Privacy-by-Design und Security-by-Design;
+4. hochwertige Mobile-first-UX und App-Readiness.
+
 ## Verbindliche Regeln für die Weiterentwicklung
 
 Die Regeln sind über viele Dokumente verteilt; diese Zusammenfassung verweist auf die Quellen. Bei Konflikt gilt die Quelle.
+
+### UI/UX hat Vorrang (Nutzervorgabe vom 20.10.2026; `DESIGN-SYSTEM.md`, `SPACE-CREATION-FLOW.md`, P0.8/P0.10/P0.11)
+
+- **Maßstab ist ein Mensch ohne Fachwissen, der Big-Tech-Apps gewohnt ist.** Eine Funktion ist erst fertig, wenn sie dort ohne Erklärung von außen verstanden und gern benutzt wird. Technisch korrekt, aber umständlich, hässlich oder unverständlich gilt als Mangel, nicht als Kosmetik.
+- **Technik bleibt unsichtbar.** ActivityPub, Server-Regeln, Connectors, Erweiterungen und Rollenmodelle erscheinen für Nutzer als normale Funktionen mit Alltagssprache und verständlichen Zuständen, nicht als Fachbegriffe. Technische Details liegen unter `⚙ Einstellungen` bzw. `ⓘ Info`.
+- **Schneller Einstieg:** kurze Create-Flows, sinnvolle Voreinstellungen. Komplexität zeigt sich erst danach und nur bei Bedarf („Erstellen ≠ Konfigurieren“). Keine Pflicht-Einrichtung vor dem ersten Nutzen.
+- **Bewährte Muster nutzen.** Bekannte Bedienmuster verbreiteter Apps (z. B. Signal, WhatsApp, Telegram, Discord, Element beim Chat) aufgreifen, damit nichts neu gelernt werden muss. Nicht ungeprüft kopieren; Privacy- und Space-Regeln gehen vor.
+- **Erklärbarkeit:** Jede Aktion ist klar beschriftet. Folgenreiche Aktionen (Löschen, Veröffentlichen, Föderieren, Rechte) erklären vorher verständlich ihre Wirkung. Herkunft und Vertrauen sind nachvollziehbar, ohne die Oberfläche zu dominieren.
+- **Mobile-first und App-Gefühl:** Mobile (412×915) ist gleichwertig oder vorrangig, mit gut erreichbaren Touch-Zielen, ohne horizontales Scrollen, mit PWA-Readiness.
+- **Ansprechend und ruhig:** konsistente Design-Tokens, klare Hierarchie, keine überladenen Ansichten, Aktionen kontextuell statt dauerhaft sichtbar.
+- **Barrierefreiheit:** Farbe ist nie der einzige Bedeutungsträger, Bedienung per Tastatur und Touch, zugängliche Namen, keine verschachtelten Bedienelemente, Reduced Motion. DOM-Tests ersetzen kein WCAG-Audit.
 
 ### Fachlicher Funktionsvertrag (`P0.16.0-BIS-P0.16.20-RETROSPEKTIVE.md`, `P0.16-WIEDERHERSTELLUNGSMATRIX.md`)
 
