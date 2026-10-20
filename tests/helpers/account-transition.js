@@ -63,6 +63,8 @@ module.exports = function registerAccountTransition() {
       expect(granted.status()).toBe(200);
       const eventResponse=await context.request.post('/api/events',{headers:{'X-BUP-CSRF':csrf},data:{name:'Editor event QA',places:['erl'],owner_space_id:communityId,communities:[communityId],start_at:'2026-10-20T18:00:00+02:00',end_at:'2026-10-20T20:00:00+02:00'}});
       expect(eventResponse.status()).toBe(201);const editorEvent=await eventResponse.json();
+      const eventGrant=await context.request.put(`/api/permissions/event/${editorEvent.id}/overrides`,{headers:{'X-BUP-CSRF':csrf},data:{role:'member',permission:'space.edit_profile',effect:'allow'}});
+      expect(eventGrant.status()).toBe(200);
       const editorContext=await browser.newContext({baseURL,viewport,storageState:{cookies:[],origins:[]}});
       try{
         const editor=await editorContext.newPage(),editorGuard=captureRuntimeFailures(editor);

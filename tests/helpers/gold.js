@@ -103,7 +103,7 @@ async function createParticipation(page, name) {
 
 async function openOwnedCommunity(page) {
   await go(page, 'communities');
-  const card = page.locator('#communities-list .community[data-mine="1"]').filter({ hasText: /admin|moderator/ }).first();
+  const card = page.locator('#communities-list .community[data-mine="1"]').filter({ hasText: /owner|admin|moderator/i }).first();
   await expect(card).toBeVisible();
   await card.click();
   await expect(page.locator('#community-space')).toHaveClass(/active/);
