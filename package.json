@@ -94,11 +94,11 @@
     "preflight:media-presentation": "node scripts/partiup-media-presentation-preflight.js",
     "preflight:place-topic-discovery": "node scripts/partiup-place-topic-discovery-preflight.js",
     "supply-chain-preflight": "node scripts/supply-chain-preflight.js",
-    "qa:retrofit": "node --test tests/security/rate-limit.test.js tests/security/supply-chain.test.js tests/security/key-store.test.js tests/security/release-package.test.js tests/security/outbound-address.test.js tests/security/recovery.test.js",
-    "deps:build": "npm rebuild better-sqlite3 --ignore-scripts=false --build-from-source"
+    "qa:retrofit": "node --test tests/security/rate-limit.test.js tests/security/supply-chain.test.js tests/security/key-store.test.js tests/security/release-package.test.js tests/security/outbound-address.test.js tests/security/recovery.test.js tests/security/native-runtime.test.js",
+    "deps:build": "node scripts/verify-native-runtime.js"
   },
   "dependencies": {
-    "better-sqlite3": "12.11.1",
+    "better-sqlite3": "13.0.3",
     "express": "4.22.2",
     "ipaddr.js": "1.9.1",
     "multer": "2.4.0",

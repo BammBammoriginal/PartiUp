@@ -20,7 +20,7 @@ function validateLock(pkg,lock){
   assert.match(item.integrity||'',/^sha512-[A-Za-z0-9+/]+={0,2}$/,`${name}: SHA-512 integrity required`);
   if(item.hasInstallScript)installScripts.push(name);
  }
- const reviewed={'node_modules/better-sqlite3':'12.11.1','node_modules/fsevents':'2.3.2'};
+ const reviewed={'node_modules/fsevents':'2.3.2'};
  // fsevents is an optional macOS watcher; its install hook remains disabled.
  assert(installScripts.every(name=>lock.packages[name].version===reviewed[name]),`Unreviewed install scripts: ${installScripts}`);
  return {packages:Object.keys(lock.packages).length-1,installScripts};

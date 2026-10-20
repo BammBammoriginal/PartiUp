@@ -17,7 +17,7 @@ dieselben serverseitigen Entscheidungen; begründete Typunterschiede dokumentier
   Fähigkeiten und kontrollierten Update-/Rollback-Weg gesperrt. Keine dynamische
   Plugin-Installation aus Konfiguration oder Katalogmetadaten ableiten.
 - Abhängigkeiten exakt pinnen; Lockfile und Registry-Signaturen prüfen, bevor
-  freigegebene native Build-Schritte laufen. `ignore-scripts` nicht global aufheben.
+  native Komponenten geladen werden. `ignore-scripts` nicht global aufheben.
   Ein kompromittierter offizieller Kanal ist Teil des Bedrohungsmodells.
 - Mobile-first erhalten. Rechteänderungen an Server und UI konsistent abbilden.
   Keine Retries, erzwungenen Klicks oder gelockerten Limits als Fehlerbehebung.

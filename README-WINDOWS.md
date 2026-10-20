@@ -4,10 +4,10 @@ Node.js 24 LTS verwenden. Vor dem Entpacken eines Releases die Attestation gegen
 Repository, Workflow und einen unabhaengig freigegebenen Commit verifizieren:
 [Update- und Wiederherstellungsprozess](SECURITY-UPDATE-AND-RECOVERY.md).
 `setup.bat` / `setup-qa.bat` verwenden jetzt `npm ci --ignore-scripts`, pruefen
-Registry-Signaturen und bauen nur die gepruefte SQLite-Abhaengigkeit aus Quellcode.
-Unter Windows braucht dieser native Build Python und Visual Studio Build Tools
-mit C++-Workload gemaess [node-gyp](https://github.com/nodejs/node-gyp#on-windows).
-Das vermeidet einen ungeprueften zweiten Download fertiger SQLite-Binaerdateien.
+Registry-Signaturen und pruefen den im signierten SQLite-Paket enthaltenen N-API-
+Treiber. Version 13.0.3 vermeidet den nativen Cleanup-Absturz der alten 12er-Reihe
+unter Node 24. Kein Installationshook und kein zusaetzlicher Binaerdownload ist
+fuer die unterstuetzten x64/arm64-Plattformen noetig.
 Bei einem fehlgeschlagenen Signatur-/Audit-/Build-Gate abbrechen; keine pauschale
 Freigabe von Installationsskripten oder `npm audit fix --force` verwenden.
 Die folgenden historischen Installationsbeispiele werden dadurch ersetzt.

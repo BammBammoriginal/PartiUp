@@ -16,10 +16,10 @@ oder Versionsprotokolle.
 
 Der Testjob besitzt nur `contents: read`, kein Release-Secret und keine
 Signierrechte. `npm ci --ignore-scripts` installiert nur das Lockfile. Danach
-Registry-Signaturen und Audits prüfen. Nur `better-sqlite3` gezielt aus dem
-verifizierten Quellpaket bauen; seine zusätzlichen vorgebauten GitHub-Downloads
-werden damit nicht als ungeprüfter Zweitkanal ausgeführt. Der optionale
-macOS-`fsevents`-Installationshook wird nicht ausgeführt. Keine automatische
+Registry-Signaturen und Audits prüfen. `better-sqlite3` 13.0.3 liefert den N-API-
+Treiber im selben durch Lock-Integrität und Registry-Signatur geprüften Paket aus;
+kein Installationsskript/ungeprüfter Zweitdownload. Der optionale macOS-`fsevents`-
+Installationshook wird nicht ausgeführt. Keine automatische
 Dependency-/Action-Freigabe nur aufgrund eines offiziellen Absendernamens.
 
 ## Release-Kandidat
@@ -76,11 +76,12 @@ npm run preflight
 npm run qa:full
 ```
 
-Für native SQLite-Builds benötigt Windows Python und Visual Studio C++ Build Tools,
-Linux eine passende C++-Toolchain und Node-Header. Fehlende Voraussetzungen sind
-ein Setup-Fehler; kein Grund für `ignore-scripts=false` auf allen Abhängigkeiten
-oder einen unkontrollierten Binärdownload. Setups/Buildausgaben enthalten keine
-Produktionsdaten. Dependency-/Codeprüfung nicht mit Produktions-Secrets ausführen.
+Die unterstützten x64/arm64-Plattformen verwenden das im geprüften Paket enthaltene
+native Modul. `deps:build` bleibt als kompatibler Befehlsname erhalten, prüft aber
+nur SQLite-Funktion und Herkunft des geladenen Moduls; es lädt nichts nach.
+Fehlende Plattformunterstützung bricht das Setup ab. Ein eigener Source-Build für
+andere Ziele braucht eine separat geprüfte Toolchain; keine pauschale Scriptfreigabe.
+Dependency-/Codeprüfung nicht mit Produktions-Secrets ausführen.
 
 ## Backup vor Update / Rollback
 
