@@ -58,11 +58,11 @@ jobs:
       - name: Check security and privacy flows
         run: npm run qa:security
 
-      - name: Exercise desktop and mobile Goldstandard
-        run: npm run qa:gold
-
       - name: Exercise supplementary smoke, layout and accessibility gates
         run: npm run qa:smoke && npm run qa:layout && npm run qa:accessibility
+
+      - name: Exercise desktop and mobile Goldstandard
+        run: npm run qa:gold
 
       - name: Save browser evidence if a test fails
         if: failure()

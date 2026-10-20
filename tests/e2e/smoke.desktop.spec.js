@@ -46,7 +46,9 @@ test.describe('desktop core smoke paths', () => {
     await project.click();
     await expect(page.locator('#modal')).toHaveClass(/show/);
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
-    await expect(page.locator('[data-otab="trust"]')).toBeVisible();
+    await expect(page.locator('[data-otab="info"]')).toBeVisible();
+    await page.locator('[data-otab="info"]').click();
+    await expect(page.locator('#modalContent')).toContainText('Vertrauen & Herkunft');
   });
 
   test('event opens as modular space with tasks and trust', async ({ page }) => {
@@ -55,7 +57,9 @@ test.describe('desktop core smoke paths', () => {
     await expect(event).toBeVisible();
     await event.click();
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
-    await expect(page.locator('[data-otab="trust"]')).toBeVisible();
+    await expect(page.locator('[data-otab="info"]')).toBeVisible();
+    await page.locator('[data-otab="info"]').click();
+    await expect(page.locator('#modalContent')).toContainText('Vertrauen & Herkunft');
   });
 
   test('Fediverse is a fifth Discover tab without replacing core discovery', async ({ page }) => {
