@@ -25,8 +25,12 @@ test.describe('mobile core smoke paths', () => {
     await go(page, 'communities');
     const first = page.locator('#communities-list .community').first();
     await expect(first).toBeVisible();
-    await first.click();
+    // Tap the card's own title like a user; on narrow cards the centre can be a place or topic chip.
+    const title = first.locator(`[data-connection-type="community"][data-connection-id="${await first.getAttribute('data-id')}"]`);
+    const name = (await title.innerText()).trim();
+    await title.click();
     await expect(page.locator('#community-space')).toHaveClass(/active/);
+    await expect(page.locator('#community-space')).toContainText(name);
     await assertNoHorizontalOverflow(page);
   });
 
