@@ -8,7 +8,7 @@ const base=`http://127.0.0.1:${port}`;
 const dbPath=path.join(process.cwd(),'data',`security-integration-${process.pid}-${Date.now()}.db`);
 const server=spawn(process.execPath,['server/server.js'],{
   cwd:process.cwd(),
-  env:{...process.env,NODE_ENV:'test',PORT:String(port),BIND_HOST:'127.0.0.1',BUP_DB_PATH:dbPath,BUP_SEED_DEMO:'1'},
+  env:{...process.env,NODE_ENV:'test',PORT:String(port),BIND_HOST:'127.0.0.1',BUP_DB_PATH:dbPath,BUP_SEED_DEMO:'1',PARTIUP_BASE_URL:'https://retrofit.example.test'},
   stdio:['ignore','pipe','pipe']
 });
 let serverOut='';server.stdout.on('data',d=>serverOut+=d);server.stderr.on('data',d=>serverOut+=d);
@@ -134,6 +134,151 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     const open=await status('Create intentionally open public participation',req(max,'POST','/api/participation',{name:'Public role QA',places:['erl'],modules:{poll:true},poll:{question:'Open',options:['A','B']}}),201);
     const openDetail=await req(anna,'GET',`/api/participation/${open.data.id}`);
     await status('Unrelated public participant remains eligible',req(anna,'POST',`/api/participation/${open.data.id}/questions/${openDetail.data.questions[0].id}/vote`,{optionId:openDetail.data.questions[0].options[0].id}),200);
+
+    // Retroactive checks: old storage/projections and new capability rules must agree.
+    const Database=require('better-sqlite3');
+    const sql=new Database(dbPath);sql.pragma('busy_timeout=5000');
+    const childProcess=require('child_process');
+    const publicBase='https://retrofit.example.test';
+    process.env.PARTIUP_BASE_URL=publicBase;
+    const protocol=require('../../server/federation/protocol');
+    try{
+      const image=await require('sharp')({create:{width:2,height:2,channels:4,background:{r:1,g:2,b:3,alpha:1}}}).png().toBuffer();
+      async function upload(jar,url,fields={}){
+        const form=new FormData();for(const [key,value] of Object.entries(fields))form.append(key,value);
+        form.append('image',new Blob([image],{type:'image/png'}),'private-file-name.png');
+        const result=await fetch(base+url,{method:'POST',headers:{Cookie:cookieHeader(jar),'X-BUP-CSRF':jar.csrf},body:form});
+        return {status:result.status,data:await result.json()};
+      }
+      async function fileStatus(name,url,jar,expected){
+        const response=await fetch(base+url,{headers:jar?{Cookie:cookieHeader(jar)}:{}});
+        check(name,response.status===expected,`expected ${expected}, got ${response.status}`);
+        check(name+' is never publicly cached',response.headers.get('cache-control')==='private, no-store');
+        await response.arrayBuffer();
+      }
+      const photo=await upload(max,`/api/communities/${privateId}/posts-with-media`,{body:'Private media boundary'});
+      check('Owner uploads a private-Space image',photo.status===201,JSON.stringify(photo.data));
+      const imageUrl=photo.data.media.variants.medium;
+      await fileStatus('Owner can read private-Space image',imageUrl,max,200);
+      await fileStatus('Anonymous known URL cannot bypass private Space',imageUrl,null,404);
+      await fileStatus('Unrelated account cannot bypass private Space media',imageUrl,anna,404);
+      const privateProjection=await req(max,'GET',`/api/communities/${privateId}`);
+      check('Media projections omit original filenames and storage keys',privateProjection.data.posts.every(post=>(post.media||[]).every(m=>!('original_name' in m)&&!('storage_key' in m))));
+      await status('Owner can make test Space public',req(max,'PUT',`/api/communities/${privateId}/access`,{visibility:'public',join_policy:'approval'}),200);
+      await fileStatus('Public image remains readable without login',imageUrl,null,200);
+      await status('Owner restores private visibility',req(max,'PUT',`/api/communities/${privateId}/access`,{visibility:'private',join_policy:'approval'}),200);
+      await fileStatus('Visibility change revokes the same media URL immediately',imageUrl,null,404);
+
+      const visibleProject=await status('Create public relation parent',req(max,'POST','/api/projects',{name:'Retrofit public project',places:['erl']}),201);
+      const secretProject=await status('Create private relation target',req(max,'POST','/api/projects',{name:'SECRET_PROJECT_MARKER',places:['erl'],visibility:'private'}),201);
+      const secretEvent=await status('Create private linked event',req(max,'POST','/api/events',{name:'SECRET_EVENT_MARKER',places:['erl'],visibility:'private',attendance_policy:'invite',projects:[visibleProject.data.id]}),201);
+      const visibleEvent=await status('Create public event with private relation',req(max,'POST','/api/events',{name:'Retrofit public event',places:['erl'],projects:[secretProject.data.id],communities:[privateId]}),201);
+      const secretParticipation=await status('Create private linked participation',req(max,'POST','/api/participation',{name:'SECRET_PARTICIPATION_MARKER',places:['erl'],visibility:'private',access_policy:'invite',projects:[visibleProject.data.id]}),201);
+      const visibleParticipation=await status('Create public participation with private relations',req(max,'POST','/api/participation',{name:'Retrofit public participation',places:['erl'],projects:[secretProject.data.id],communities:[privateId]}),201);
+      await status('Partial Community access update preserves private visibility',req(max,'PUT',`/api/communities/${privateId}/access`,{min_trust_level:2}),200);
+      await status('Partial Community update did not make private Space public',req(anon,'GET',`/api/communities/${privateId}`),404);
+      await status('Invalid Community visibility is rejected instead of made public',req(max,'PUT',`/api/communities/${privateId}/access`,{visibility:'typo'}),400);
+      await status('Partial event access update preserves visibility',req(max,'PUT',`/api/events/${secretEvent.data.id}/access`,{min_trust_level:2}),200);
+      await status('Partial event update did not make private event public',req(anon,'GET',`/api/events/${secretEvent.data.id}`),404);
+      sql.prepare("INSERT INTO federation_remote_objects(object_uri,object_type,actor_uri,origin_host,content_text,raw_json,moderation_state) VALUES ('https://remote.example/hidden','Note','https://remote.example/actor','remote.example','HIDDEN_REMOTE_MARKER','{}','hidden')").run();
+      const remoteList=await req(anon,'GET','/api/federation/remote-objects');check('Moderated remote objects do not leak through the inspection API',!remoteList.data.some(o=>o.content_text==='HIDDEN_REMOTE_MARKER'));
+      const publicProjectView=await req(anon,'GET',`/api/projects/${visibleProject.data.id}`);
+      check('Public project does not reveal private event or participation',!publicProjectView.data.events.some(e=>e.id===secretEvent.data.id)&&!publicProjectView.data.participation.some(p=>p.id===secretParticipation.data.id));
+      const publicEventView=await req(anon,'GET',`/api/events/${visibleEvent.data.id}`);
+      check('Public event hides private project and Community relations',!publicEventView.data.projects.some(p=>p.id===secretProject.data.id)&&!publicEventView.data.communities.some(c=>c.id===privateId));
+      const publicParticipationView=await req(anon,'GET',`/api/participation/${visibleParticipation.data.id}`);
+      check('Public participation hides private project and Community relations',!publicParticipationView.data.projects.some(p=>p.id===secretProject.data.id)&&!publicParticipationView.data.communities.some(c=>c.id===privateId));
+      const ownerProjectView=await req(max,'GET',`/api/projects/${visibleProject.data.id}`);
+      check('Visible relations are preserved for their authorized owner',ownerProjectView.data.events.some(e=>e.id===secretEvent.data.id)&&ownerProjectView.data.participation.some(p=>p.id===secretParticipation.data.id));
+      await status('Create internal project task',req(max,'POST',`/api/objects/project/${visibleProject.data.id}/tasks`,{title:'INTERNAL_TASK_MARKER'}),201);
+      const taskView=await req(anon,'GET',`/api/projects/${visibleProject.data.id}`);
+      check('Public project does not disclose tasks without task.view',taskView.data.tasks.length===0);
+      const ownTaskView=await req(max,'GET',`/api/projects/${visibleProject.data.id}`);
+      check('Owner retains task visibility',ownTaskView.data.tasks.some(t=>t.title==='INTERNAL_TASK_MARKER'));
+      const privateProjectUpload=await upload(max,`/api/media/project/${secretProject.data.id}`);
+      check('Private project image mutation returns its authorized detail',privateProjectUpload.status===201&&privateProjectUpload.data.id===secretProject.data.id&&privateProjectUpload.data.authz.my_permissions.includes('space.edit_profile'));
+      const guestSnapshot=await req(anna,'GET',`/api/permissions/project/${visibleProject.data.id}`);
+      check('Permission inspection cannot enumerate unrelated principals',guestSnapshot.data.principals.every(p=>p.id==='u-anna'));
+
+      await status('Owner grants only profile-edit capability',req(max,'PUT',`/api/permissions/community/${scopeId}/overrides`,{role:'member',permission:'space.edit_profile',effect:'allow'}),200);
+      await status('Profile editor cannot change access rules',req(anna,'PUT',`/api/communities/${scopeId}/access`,{visibility:'private',join_policy:'invite'}),403);
+      await status('Profile editor cannot read admission requests',req(anna,'GET',`/api/communities/${scopeId}/join-requests`),403);
+      await status('Profile editor cannot approve members',req(anna,'POST',`/api/communities/${scopeId}/join-requests/u-lisa`,{decision:'approve'}),403);
+      await status('Profile editor cannot configure setup',req(anna,'PUT',`/api/communities/${scopeId}/setup-status`,{complete:true}),403);
+      await status('Owner withdraws member writing again',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-anna`,{role:'guest'}),200);
+      await status('Guest cannot edit a previously authored post',req(anna,'PUT',`/api/posts/${post.data.postId}`,{body:'Forbidden later edit'}),403);
+      await status('Owner restores member after author regression',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-anna`,{role:'member'}),200);
+      await status('Owner can deny a read capability',req(max,'PUT',`/api/permissions/community/${scopeId}/overrides`,{role:'member',permission:'space.view',effect:'deny'}),200);
+      await status('Visibility and capability checks agree on denied reads',req(anna,'GET',`/api/communities/${scopeId}`),404);
+      const deniedFeed=await req(anna,'GET','/api/bootstrap');check('Home feed also honors a revoked Space view',!deniedFeed.data.feed.some(p=>p.community_id===scopeId));
+      await status('Denied viewer cannot use profile-edit override',req(anna,'PUT',`/api/communities/${scopeId}/profile`,{name:'Forbidden access'}),403);
+      await status('Owner restores scoped read capability',req(max,'PUT',`/api/permissions/community/${scopeId}/overrides`,{role:'member',permission:'space.view',effect:'inherit'}),200);
+      await status('Unrelated permissions do not survive self role inspection',req(anna,'GET',`/api/permissions/community/${scopeId}`),200);
+
+      sql.prepare("UPDATE user_preferences SET federation_enabled=1 WHERE user_id='u-max'").run();
+      sql.prepare("UPDATE communities SET federation_mode='selected' WHERE id=?").run(privateId);
+      sql.prepare("UPDATE posts SET federation_state='enabled' WHERE id=?").run(photo.data.postId);
+      await fileStatus('Explicitly public selected attachment still federates',imageUrl,null,200);
+      const closedComment=await status('Write internal reply to selected parent',req(max,'POST',`/api/posts/${photo.data.postId}/comments`,{body:'INTERNAL_COMMENT_MARKER'}),201);
+      check('Private-Space reply is not implicitly public',protocol.noteForLocalComment(sql,closedComment.data.commentId)===null);
+      await status('Private reply is absent from ActivityPub',req(anon,'GET',`/ap/objects/comments/${closedComment.data.commentId}`),404);
+      const group=await req(anon,'GET',`/ap/actors/spaces/${privateId}`);
+      check('Private Space federation exposes minimal Group metadata',group.status===200&&group.data.name==='PartiUp-Space'&&!group.data.summary&&group.data.discoverable===false&&group.data.preferredUsername.startsWith('space_'));
+      sql.prepare("UPDATE communities SET federation_mode='public' WHERE id=?").run(scopeId);
+      const parent=await status('Create public federation parent',req(max,'POST',`/api/communities/${scopeId}/posts`,{body:'Original publication'}),201);
+      const publicComment=await status('Non-federating member can comment locally',req(anna,'POST',`/api/posts/${parent.data.postId}/comments`,{body:'LOCAL_COMMENT_MARKER'}),201);
+      check('Commenter federation opt-out is honored independently of parent',protocol.noteForLocalComment(sql,publicComment.data.commentId)===null);
+      sql.prepare("UPDATE user_preferences SET federation_enabled=1 WHERE user_id='u-anna'").run();
+      check('Opted-in public reply remains federatable',!!protocol.noteForLocalComment(sql,publicComment.data.commentId));
+      const old=protocol.createActivityForNote(protocol.noteForLocalPost(sql,parent.data.postId));
+      sql.prepare('UPDATE posts SET body=? WHERE id=?').run('Updated publication',parent.data.postId);
+      check('Queued delivery uses current content',protocol.refreshPublicationActivity(sql,old).object.content==='Updated publication');
+      sql.prepare("UPDATE posts SET federation_state='disabled' WHERE id=?").run(parent.data.postId);
+      check('Queued delivery cannot outlive its publication consent',protocol.refreshPublicationActivity(sql,old)===null);
+      sql.prepare("INSERT INTO federation_delivery_queue(id,local_user_id,remote_actor_uri,inbox_uri,payload_json,status) VALUES ('retrofit-revoked','u-max','https://remote.example/actor','https://127.0.0.1/inbox',?,'pending')").run(JSON.stringify(old));
+      await protocol.flushDeliveryQueue(sql);
+      const discarded=sql.prepare("SELECT status,payload_json FROM federation_delivery_queue WHERE id='retrofit-revoked'").get();
+      check('Revoked queue item is terminal and its payload is discarded before network access',discarded.status==='failed'&&discarded.payload_json==='{}');
+      const disabledMode=childProcess.spawnSync(process.execPath,['-e',"require('./server/federation/key-store')"],{cwd:process.cwd(),env:{...process.env,NODE_ENV:'production',PARTIUP_FEDERATION_KEY_STORE:'sqlite'},encoding:'utf8'});
+      check('Production cannot opt back into plaintext SQLite private keys',disabledMode.status!==0&&disabledMode.stderr.includes('encrypted-file'));
+      const invalidMode=childProcess.spawnSync(process.execPath,['-e',"require('./server/federation/key-store')"],{cwd:process.cwd(),env:{...process.env,PARTIUP_FEDERATION_KEY_STORE:'typo'},encoding:'utf8'});
+      check('Unknown key-store mode cannot fall back to plaintext rotation',invalidMode.status!==0);
+      const beforePrivacy=sql.prepare('SELECT user_id,profile_visibility,shared_connections_visibility,follows_visibility FROM user_preferences WHERE user_id IN (?,?,?)').all('u-max','u-anna','u-lisa');
+      for(const [a,b] of [['u-anna','u-lisa'],['u-lisa','u-max']])sql.prepare("INSERT OR REPLACE INTO user_friendships(user_a,user_b,status,requested_by) VALUES (?,?,'accepted',?)").run(a,b,a);
+      sql.prepare("UPDATE user_preferences SET profile_visibility='public',shared_connections_visibility='public',follows_visibility='public' WHERE user_id IN ('u-max','u-anna')").run();
+      sql.prepare("UPDATE user_preferences SET profile_visibility='private',shared_connections_visibility='private' WHERE user_id='u-lisa'").run();
+      sql.prepare("INSERT OR IGNORE INTO user_follows(user_id,target_type,target_id) VALUES ('u-max','community',?)").run(privateId);
+      sql.prepare("INSERT OR IGNORE INTO user_follows(user_id,target_type,target_id) VALUES ('u-max','person','u-lisa')").run();
+      const hiddenMutual=await req(anna,'GET','/api/users/u-max');
+      check('Public profile follow graph respects private targets',!hiddenMutual.data.follows.communities.includes(privateId)&&!hiddenMutual.data.follows.people.includes('u-lisa'));
+      check('Mutual connections cannot reveal a third party private identity',hiddenMutual.status===200&&!hiddenMutual.data.shared_connections.people.some(p=>p.id==='u-lisa'));
+      sql.prepare("UPDATE user_preferences SET profile_visibility='public',shared_connections_visibility='public' WHERE user_id='u-lisa'").run();
+      const visibleMutual=await req(anna,'GET','/api/users/u-max');
+      check('Explicitly visible mutual connections are preserved',visibleMutual.data.shared_connections.people.some(p=>p.id==='u-lisa'));
+      for(const pref of beforePrivacy)sql.prepare('UPDATE user_preferences SET profile_visibility=?,shared_connections_visibility=?,follows_visibility=? WHERE user_id=?').run(pref.profile_visibility,pref.shared_connections_visibility,pref.follows_visibility,pref.user_id);
+      const conversation=await status('Create conversation for expiry boundary',req(max,'POST','/api/messages/conversations',{direct_user_id:'u-anna'}),201);
+      const privateImage=await upload(max,`/api/messages/conversations/${conversation.data.id}/images`);
+      check('Upload private image before conversation expiry',privateImage.status===201,JSON.stringify(privateImage.data));
+      const privateUrl=privateImage.data.media[0].url;
+      await fileStatus('Current conversation member can read image',privateUrl,max,200);
+      sql.prepare("UPDATE conversations SET expires_at=datetime('now','-1 minute') WHERE id=?").run(conversation.data.id);
+      const expired=await fetch(base+privateUrl,{headers:{Cookie:cookieHeader(max)}});
+      check('Conversation expiration also revokes known image URLs',expired.status===404);await expired.arrayBuffer();
+      await status('Expired conversation cannot receive new reactions',req(max,'POST',`/api/messages/${privateImage.data.id}/reactions`,{emoji:'👍'}),404);
+      sql.prepare("UPDATE memberships SET role='admin' WHERE community_id=? AND user_id='u-anna'").run(scopeId);
+      await status('Owner records a guest restriction over a legacy admin membership',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-anna`,{role:'guest'}),200);
+      const membershipProjection=await req(anna,'GET','/api/bootstrap');check('Own membership overview uses the effective role',membershipProjection.data.memberships.find(m=>m.community_id===scopeId).role==='guest');
+      await status('A demoted legacy admin can leave without an ownership lock',req(anna,'DELETE',`/api/communities/${scopeId}/membership`),200);
+      await status('Rejoin does not erase a recorded guest restriction',req(anna,'POST',`/api/communities/${scopeId}/join`,{}),200);
+      const rejoined=await req(anna,'GET',`/api/permissions/community/${scopeId}`);check('Leave/rejoin cannot bypass demotion',rejoined.data.my_role==='guest');
+      sql.prepare("INSERT INTO memberships(community_id,user_id,role) VALUES (?,'u-lisa','member')").run(scopeId);
+      await status('Owner grants scoped administrator fixture',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-lisa`,{role:'admin'}),200);
+      await status('Non-owner administrator may relinquish membership',req(lisa,'DELETE',`/api/communities/${scopeId}/membership`),200);
+      const departed=await req(lisa,'GET',`/api/permissions/community/${scopeId}`);check('Departure revokes positive community role grants',departed.data.my_role==='guest');
+      await status('Owner cannot silently orphan the Space by leaving',req(max,'DELETE',`/api/communities/${scopeId}/membership`),400);
+      const {globalMode}=require('../../server/federation/governance');
+      check('Federation peer writes require review by default',globalMode()==='reviewed');
+    }finally{sql.close();}
 
     const noCsrfJar=await login('max@bottomupparti.local');
     noCsrfJar.csrf=null;

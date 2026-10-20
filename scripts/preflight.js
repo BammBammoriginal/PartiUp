@@ -42,7 +42,7 @@ const checks=[
  ['Community-Beitrittsanfragen', db.includes('community_join_requests')&&server.includes('/join-requests')&&app.includes('Beitrittsanfragen')],
  ['Event-Teilnahme Teilnehmen/Vielleicht', db.includes('event_attendance')&&server.includes('/api/events/:id/rsvp')&&app.includes('Teilnehmen')&&app.includes('Vielleicht')],
  ['Event-Zugangsmodelle', db.includes('attendance_policy')&&db.includes('max_participants')&&app.includes('Nur Community-Mitglieder')],
- ['Private Communities serverseitig gefiltert', db.includes("c.visibility==='public'")&&db.includes("row.visibility==='private'")],
+ ['Private Communities serverseitig gefiltert', db.includes("c.visibility==='public'")&&(db.includes("function canViewCommunityRow")&&db.includes("if(!canViewCommunityRow(row,userId)) return null"))],
 
  ['Ersteller auf nativen Kacheln sichtbar', app.includes('creatorCompact(c)')&&app.includes('creatorCompact(e)')&&app.includes('creatorCompact(p)')&&app.includes('creatorCompact(p)}<p')],
  ['Verifizierungsstufe explizit sichtbar', app.includes('Verifizierungsstufe')&&app.includes('· Stufe ${Number(o.creator.trust_level)||0}')],

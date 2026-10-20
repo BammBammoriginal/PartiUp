@@ -5,6 +5,7 @@ const crypto=require('crypto');
 
 const IS_PROD=process.env.NODE_ENV==='production';
 const MODE=String(process.env.PARTIUP_FEDERATION_KEY_STORE||'').trim() || (IS_PROD?'encrypted-file':'sqlite');
+if(!['sqlite','encrypted-file'].includes(MODE)||(IS_PROD&&MODE!=='encrypted-file'))throw new Error('Production federation requires encrypted-file key storage; unknown key-store modes are rejected');
 const ROOT=path.resolve(process.env.PARTIUP_FEDERATION_KEY_DIR||path.join(__dirname,'..','..','data','federation-keys'));
 
 function masterKey(){
@@ -37,11 +38,11 @@ function ensureKey(db,kind,id){
   // One-time migration: remove legacy private PEM from SQLite after durable encrypted-file write.
   if(row?.private_key_pem&&row.private_key_pem.includes('PRIVATE KEY')){writePrivate(kind,id,row.private_key_pem);db.prepare(`UPDATE ${table} SET private_key_pem='' WHERE ${idcol}=?`).run(id);row={...row,private_key_pem:''};}
   if(row){
-    try{return {...row,private_key_pem:readPrivate(kind,id)}}catch(e){if(fs.existsSync(keyPath(kind,id)))throw e;throw new Error('Federation private key material missing; explicit re-key required')}
+    try{const pem=readPrivate(kind,id);const publicPem=crypto.createPublicKey(pem).export({type:'spki',format:'pem'});if(publicPem!==row.public_key_pem)throw new Error('Federation public/private key mismatch; explicit recovery required');return {...row,private_key_pem:pem}}catch(e){if(fs.existsSync(keyPath(kind,id)))throw e;throw new Error('Federation private key material missing; explicit re-key required')}
   }
   const kp=generate();writePrivate(kind,id,kp.privateKey);try{db.prepare(`INSERT INTO ${table}(${idcol},public_key_pem,private_key_pem) VALUES (?,?,?)`).run(id,kp.publicKey,'')}catch(e){removePrivate(kind,id);throw e}return {...db.prepare(`SELECT * FROM ${table} WHERE ${idcol}=?`).get(id),private_key_pem:kp.privateKey};
 }
 function rotateKey(db,kind,id){const {table,idcol}=tableInfo(kind),kp=generate();if(MODE==='encrypted-file'){writePrivate(kind,id,kp.privateKey);db.prepare(`INSERT INTO ${table}(${idcol},public_key_pem,private_key_pem) VALUES (?,?,?) ON CONFLICT(${idcol}) DO UPDATE SET public_key_pem=excluded.public_key_pem,private_key_pem='',created_at=CURRENT_TIMESTAMP`).run(id,kp.publicKey,'');return {...db.prepare(`SELECT * FROM ${table} WHERE ${idcol}=?`).get(id),private_key_pem:kp.privateKey}}db.prepare(`INSERT INTO ${table}(${idcol},public_key_pem,private_key_pem) VALUES (?,?,?) ON CONFLICT(${idcol}) DO UPDATE SET public_key_pem=excluded.public_key_pem,private_key_pem=excluded.private_key_pem,created_at=CURRENT_TIMESTAMP`).run(id,kp.publicKey,kp.privateKey);return db.prepare(`SELECT * FROM ${table} WHERE ${idcol}=?`).get(id)}
 function deleteKey(db,kind,id){const {table,idcol}=tableInfo(kind);db.prepare(`DELETE FROM ${table} WHERE ${idcol}=?`).run(id);if(MODE==='encrypted-file')removePrivate(kind,id)}
-function config(){return {mode:MODE,root:MODE==='encrypted-file'?ROOT:null,productionRecommended:'encrypted-file',kmsHsmReady:true}}
+function config(){return {mode:MODE,root:MODE==='encrypted-file'?ROOT:null,productionRecommended:'encrypted-file',kmsHsmReady:false}}
 module.exports={ensureKey,rotateKey,deleteKey,deletePrivateMaterial:removePrivate,config};

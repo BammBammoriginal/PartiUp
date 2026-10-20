@@ -1,3 +1,17 @@
+# Aktueller sicherer Installationsweg (20.10.2026)
+
+Node.js 24 LTS verwenden. Vor dem Entpacken eines Releases die Attestation gegen
+Repository, Workflow und einen unabhaengig freigegebenen Commit verifizieren:
+[Update- und Wiederherstellungsprozess](SECURITY-UPDATE-AND-RECOVERY.md).
+`setup.bat` / `setup-qa.bat` verwenden jetzt `npm ci --ignore-scripts`, pruefen
+Registry-Signaturen und bauen nur die gepruefte SQLite-Abhaengigkeit aus Quellcode.
+Unter Windows braucht dieser native Build Python und Visual Studio Build Tools
+mit C++-Workload gemaess [node-gyp](https://github.com/nodejs/node-gyp#on-windows).
+Das vermeidet einen ungeprueften zweiten Download fertiger SQLite-Binaerdateien.
+Bei einem fehlgeschlagenen Signatur-/Audit-/Build-Gate abbrechen; keine pauschale
+Freigabe von Installationsskripten oder `npm audit fix --force` verwenden.
+Die folgenden historischen Installationsbeispiele werden dadurch ersetzt.
+
 # BottomUpParti v0.8.7.1 – Space Creation & Modular Setup
 
 Diese Version ergänzt die bestehende Community-/Privacy-/Space-Struktur um sichere Direkt- und Gruppennachrichten. Die QA-/Regression-Gates aus v0.8.5.5 sind enthalten.

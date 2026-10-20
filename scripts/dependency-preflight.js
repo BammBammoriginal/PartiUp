@@ -3,7 +3,7 @@ const path=require('path');
 const root=path.join(__dirname,'..');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const expected={
-  dependencies:{'better-sqlite3':'12.11.1','express':'4.22.2','multer':'2.4.0','sharp':'0.35.4'},
+  dependencies:{'ipaddr.js':'1.9.1','better-sqlite3':'12.11.1','express':'4.22.2','multer':'2.4.0','sharp':'0.35.4'},
   devDependencies:{'@playwright/test':'1.62.1'},
   overrides:{'body-parser':'1.20.6','qs':'6.16.0'}
 };

@@ -8,7 +8,7 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "check": "node --check server/server.js && node --check server/db.js && node --check public/app.js",
-    "preflight": "npm run release-content-preflight && node scripts/partiup-place-topic-discovery-preflight.js && node scripts/partiup-comment-image-upload-preflight.js && node scripts/partiup-media-presentation-preflight.js && node scripts/partiup-post-image-upload-preflight.js && node scripts/partiup-civictech-integration-preflight.js && node scripts/partiup-media-federation-preflight.js && node scripts/partiup-connector-framework-preflight.js && node scripts/partiup-discover-layout-preflight.js && node scripts/partiup-discover-tab-isolation-preflight.js && node scripts/partiup-discover-landing-preflight.js && node scripts/partiup-fediverse-discover-preflight.js && node scripts/partiup-profile-privacy-preflight.js && node scripts/partiup-profile-activity-preflight.js && node scripts/partiup-network-profile-preflight.js && node scripts/partiup-cross-space-consistency-preflight.js && node scripts/partiup-connection-chips-preflight.js && node scripts/partiup-follow-ux-preflight.js && node scripts/partiup-personal-network-preflight.js && node scripts/partiup-event-participation-preflight.js && node scripts/partiup-release-regression-preflight.js && node scripts/partiup-unified-feed-preflight.js && node scripts/partiup-space-consistency-task-preflight.js && node scripts/partiup-extension-architecture-preflight.js && node scripts/partiup-participation-core-preflight.js && node scripts/partiup-federation-governance-preflight.js && node scripts/partiup-event-federation-preflight.js && node scripts/partiup-group-federation-preflight.js && node scripts/partiup-group-inbound-preflight.js && node scripts/partiup-federation-content-preflight.js && node scripts/partiup-public-federation-preflight.js && node scripts/partiup-federation-protocol-preflight.js && node scripts/partiup-federation-model-preflight.js && node scripts/partiup-architecture-preflight.js && node scripts/version-preflight.js && node scripts/dependency-preflight.js && node scripts/preflight.js && node scripts/security-preflight.js && node scripts/mobile-preflight.js && node scripts/messaging-preflight.js && node scripts/space-creation-preflight.js && node scripts/boot-preflight.js && node scripts/module-boundary-preflight.js && node scripts/profile-runtime-preflight.js && node scripts/ui-card-preflight.js && node scripts/qa-static-preflight.js && node scripts/qa-auth-preflight.js && node scripts/partiup-frontend-reference-preflight.js && npm run check && npm run object-space-preflight && npm run mobile-nav-qa-preflight && npm run sidebar-scope-preflight && npm run desktop-chat-nav-preflight && npm run permissions-preflight && npm run moderation-preflight && npm run stability-security-preflight && node scripts/security-integration-preflight.js && node scripts/privacy-hardening-preflight.js && npm run privacy-data-lifecycle-preflight && npm run privacy-schema-policy-preflight && npm run user-federation-privacy-preflight && npm run federation-inbox-hardening-preflight && npm run xss-html-injection-preflight && npm run security-hardening-bundle-preflight",
+    "preflight": "npm run supply-chain-preflight && npm run release-content-preflight && node scripts/partiup-place-topic-discovery-preflight.js && node scripts/partiup-comment-image-upload-preflight.js && node scripts/partiup-media-presentation-preflight.js && node scripts/partiup-post-image-upload-preflight.js && node scripts/partiup-civictech-integration-preflight.js && node scripts/partiup-media-federation-preflight.js && node scripts/partiup-connector-framework-preflight.js && node scripts/partiup-discover-layout-preflight.js && node scripts/partiup-discover-tab-isolation-preflight.js && node scripts/partiup-discover-landing-preflight.js && node scripts/partiup-fediverse-discover-preflight.js && node scripts/partiup-profile-privacy-preflight.js && node scripts/partiup-profile-activity-preflight.js && node scripts/partiup-network-profile-preflight.js && node scripts/partiup-cross-space-consistency-preflight.js && node scripts/partiup-connection-chips-preflight.js && node scripts/partiup-follow-ux-preflight.js && node scripts/partiup-personal-network-preflight.js && node scripts/partiup-event-participation-preflight.js && node scripts/partiup-release-regression-preflight.js && node scripts/partiup-unified-feed-preflight.js && node scripts/partiup-space-consistency-task-preflight.js && node scripts/partiup-extension-architecture-preflight.js && node scripts/partiup-participation-core-preflight.js && node scripts/partiup-federation-governance-preflight.js && node scripts/partiup-event-federation-preflight.js && node scripts/partiup-group-federation-preflight.js && node scripts/partiup-group-inbound-preflight.js && node scripts/partiup-federation-content-preflight.js && node scripts/partiup-public-federation-preflight.js && node scripts/partiup-federation-protocol-preflight.js && node scripts/partiup-federation-model-preflight.js && node scripts/partiup-architecture-preflight.js && node scripts/version-preflight.js && node scripts/dependency-preflight.js && node scripts/preflight.js && node scripts/security-preflight.js && node scripts/mobile-preflight.js && node scripts/messaging-preflight.js && node scripts/space-creation-preflight.js && node scripts/boot-preflight.js && node scripts/module-boundary-preflight.js && node scripts/profile-runtime-preflight.js && node scripts/ui-card-preflight.js && node scripts/qa-static-preflight.js && node scripts/qa-auth-preflight.js && node scripts/partiup-frontend-reference-preflight.js && npm run check && npm run object-space-preflight && npm run mobile-nav-qa-preflight && npm run sidebar-scope-preflight && npm run desktop-chat-nav-preflight && npm run permissions-preflight && npm run moderation-preflight && npm run stability-security-preflight && node scripts/security-integration-preflight.js && node scripts/privacy-hardening-preflight.js && npm run privacy-data-lifecycle-preflight && npm run privacy-schema-policy-preflight && npm run user-federation-privacy-preflight && npm run federation-inbox-hardening-preflight && npm run xss-html-injection-preflight && npm run security-hardening-bundle-preflight",
     "release-content-preflight": "node scripts/release-content-preflight.js",
     "chat-image-preview-preflight": "node scripts/chat-image-preview-preflight.js",
     "mobile-preflight": "node scripts/mobile-preflight.js",
@@ -43,7 +43,7 @@
     "qa:gold:preflight": "node scripts/chat-image-preview-preflight.js && node scripts/gold-standard-browser-preflight.js",
     "qa:gold:regressions": "node tests/integration/gold-regressions.integration.js",
     "qa:fast": "npm run qa:security && npm run qa:smoke",
-    "qa:full": "npm run qa:smoke && npm run qa:layout && npm run qa:accessibility && npm run qa:gold",
+    "qa:full": "npm run qa:security && npm run qa:smoke && npm run qa:layout && npm run qa:accessibility && npm run qa:gold",
     "release-check:full": "npm run audit:prod && npm run audit:all && npm run version-preflight && npm run preflight && npm run qa:full",
     "mobile-nav-qa-preflight": "node scripts/mobile-nav-qa-preflight.js",
     "sidebar-scope-preflight": "node scripts/sidebar-scope-preflight.js",
@@ -53,7 +53,7 @@
     "moderation-preflight": "node scripts/moderation-preflight.js",
     "stability-security-preflight": "node scripts/stability-security-preflight.js",
     "security-integration": "node tests/integration/security-permissions.integration.js",
-    "qa:security": "npm run security-integration && node tests/integration/event-access.integration.js && npm run privacy-data-lifecycle-integration && npm run user-federation-privacy-integration && npm run federation-inbox-resource-integration && npm run xss-payloads-test && npm run login-participation-reports-integration && node tests/integration/registration.integration.js",
+    "qa:security": "npm run security-integration && node tests/integration/event-access.integration.js && npm run privacy-data-lifecycle-integration && npm run user-federation-privacy-integration && npm run federation-inbox-resource-integration && npm run xss-payloads-test && npm run login-participation-reports-integration && node tests/integration/registration.integration.js && npm run qa:retrofit",
     "privacy-hardening-preflight": "node scripts/privacy-hardening-preflight.js",
     "partiup-architecture-preflight": "node scripts/partiup-architecture-preflight.js",
     "partiup-federation-model-preflight": "node scripts/partiup-federation-model-preflight.js",
@@ -92,13 +92,17 @@
     "preflight:media-federation": "node scripts/partiup-media-federation-preflight.js",
     "preflight:civictech-integrations": "node scripts/partiup-civictech-integration-preflight.js",
     "preflight:media-presentation": "node scripts/partiup-media-presentation-preflight.js",
-    "preflight:place-topic-discovery": "node scripts/partiup-place-topic-discovery-preflight.js"
+    "preflight:place-topic-discovery": "node scripts/partiup-place-topic-discovery-preflight.js",
+    "supply-chain-preflight": "node scripts/supply-chain-preflight.js",
+    "qa:retrofit": "node --test tests/security/rate-limit.test.js tests/security/supply-chain.test.js tests/security/key-store.test.js tests/security/release-package.test.js tests/security/outbound-address.test.js tests/security/recovery.test.js",
+    "deps:build": "npm rebuild better-sqlite3 --ignore-scripts=false --build-from-source"
   },
   "dependencies": {
     "better-sqlite3": "12.11.1",
     "express": "4.22.2",
     "multer": "2.4.0",
-    "sharp": "0.35.4"
+    "sharp": "0.35.4",
+    "ipaddr.js": "1.9.1"
   },
   "overrides": {
     "body-parser": "1.20.6",
@@ -106,5 +110,8 @@
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"
+  },
+  "engines": {
+    "node": ">=24 <25"
   }
 }

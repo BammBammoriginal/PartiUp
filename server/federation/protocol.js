@@ -46,7 +46,17 @@ function isUserFederationEnabled(db,userId){return !!userFederationSettings(db,u
 function ensureFederationHandle(db,userId){if(!isUserFederationEnabled(db,userId))return null;let row=db.prepare('SELECT handle FROM federation_handles WHERE user_id=?').get(userId);if(row?.handle)return row.handle;let base=defaultHandleForUser(userId), candidate=base, n=2;while(db.prepare('SELECT 1 FROM federation_handles WHERE handle=?').get(candidate)){candidate=`${base}${n++}`.slice(0,30)}db.prepare('INSERT INTO federation_handles(user_id,handle) VALUES (?,?)').run(userId,candidate);return candidate;}
 function userIdForHandle(db,handle){const h=normalizeHandle(handle);if(!h)return null;return db.prepare(`SELECT fh.user_id FROM federation_handles fh JOIN users u ON u.id=fh.user_id JOIN user_preferences p ON p.user_id=fh.user_id WHERE fh.handle=? AND COALESCE(u.account_status,'active')='active' AND COALESCE(p.federation_enabled,0)=1`).get(h)?.user_id||null;}
 function defaultHandleForSpace(name,spaceId){const base=normalizeHandle(String(name||'').replace(/\s+/g,'_'));return base||('space'+crypto.createHash('sha256').update(String(spaceId)).digest('hex').slice(0,8));}
-function ensureSpaceFederationHandle(db,spaceId){let row=db.prepare('SELECT handle FROM federation_space_handles WHERE community_id=?').get(spaceId);if(row?.handle)return row.handle;const space=db.prepare('SELECT name FROM communities WHERE id=?').get(spaceId);if(!space)return null;let base=defaultHandleForSpace(space.name,spaceId),candidate=base,n=2;while(db.prepare('SELECT 1 FROM federation_handles WHERE handle=? UNION SELECT 1 FROM federation_space_handles WHERE handle=?').get(candidate,candidate)){const suffix=String(n++);candidate=(base.slice(0,Math.max(1,30-suffix.length))+suffix)}db.prepare('INSERT INTO federation_space_handles(community_id,handle) VALUES (?,?)').run(spaceId,candidate);return candidate;}
+function ensureSpaceFederationHandle(db,spaceId){
+  const space=db.prepare('SELECT name,visibility FROM communities WHERE id=?').get(spaceId);if(!space)return null;
+  const row=db.prepare('SELECT handle FROM federation_space_handles WHERE community_id=?').get(spaceId);
+  const opaque='space_'+crypto.createHash('sha256').update(String(spaceId)).digest('hex').slice(0,16);
+  if(row?.handle&&(space.visibility==='public'||row.handle===opaque))return row.handle;
+  let base=space.visibility==='public'?defaultHandleForSpace(space.name,spaceId):opaque,candidate=base,n=2;
+  while(db.prepare('SELECT 1 FROM federation_handles WHERE handle=? UNION SELECT 1 FROM federation_space_handles WHERE handle=? AND community_id<>?').get(candidate,candidate,spaceId)){const suffix=String(n++);candidate=base.slice(0,Math.max(1,30-suffix.length))+suffix}
+  db.prepare('INSERT INTO federation_space_handles(community_id,handle) VALUES (?,?) ON CONFLICT(community_id) DO UPDATE SET handle=excluded.handle').run(spaceId,candidate);
+  return candidate;
+}
+
 function spaceIdForHandle(db,handle){const h=normalizeHandle(handle);if(!h)return null;return db.prepare('SELECT community_id FROM federation_space_handles WHERE handle=?').get(h)?.community_id||null;}
 function installProtocolSchema(db){db.exec(`
 CREATE TABLE IF NOT EXISTS federation_handles(user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, handle TEXT NOT NULL UNIQUE COLLATE NOCASE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -74,26 +84,19 @@ function actorDocument(db,userId){
   const actor={'@context':[AS,'https://w3id.org/security/v1',{webfinger:'https://w3id.org/fep/2c59/webfinger',discoverable:'toot:discoverable',toot:'http://joinmastodon.org/ns#'}],id,type:'Person',preferredUsername:handle,webfinger:`acct:${handle}@${host}`,discoverable:!!u.federation_discoverable,inbox:`${id}/inbox`,outbox:`${id}/outbox`,followers:`${id}/followers`,following:`${id}/following`,url:id,publicKey:{id:`${id}#main-key`,owner:id,publicKeyPem:key.public_key_pem}};
   if(allowField('name')&&u.name)actor.name=u.name;
   if(allowField('bio')&&u.bio_visibility==='public'&&u.bio)actor.summary=u.bio;
-  if(allowField('avatar')&&u.avatar)actor.icon={type:'Image',url:u.avatar};
+  if(allowField('avatar')){const image=primaryImageForEntity(db,'user',userId,requirePublicBase(),'avatar');if(image)actor.icon=image;}
   if(u.interests_visibility==='public'&&u.fields.includes('interests')){const interests=db.prepare('SELECT t.name FROM user_topics ut JOIN topics t ON t.id=ut.topic_id WHERE ut.user_id=? ORDER BY t.name').all(userId).map(x=>x.name);if(interests.length)actor.tag=interests.map(name=>({type:'Hashtag',name:'#'+name.replace(/\s+/g,'')}));}
   return actor;
 }
-function spaceActorDocument(db,spaceId){const c=db.prepare('SELECT id,name,description,icon,visibility,federation_mode FROM communities WHERE id=?').get(spaceId);if(!c||c.federation_mode==='off')return null;const id=spaceActorId(spaceId),key=ensureSpaceActorKey(db,spaceId),handle=ensureSpaceFederationHandle(db,spaceId),host=new URL(requirePublicBase()).host;return {'@context':[AS,'https://w3id.org/security/v1',{webfinger:'https://w3id.org/fep/2c59/webfinger',discoverable:'toot:discoverable',toot:'http://joinmastodon.org/ns#'}],id,type:'Group',preferredUsername:handle,webfinger:`acct:${handle}@${host}`,name:c.name,summary:c.description||'',discoverable:true,inbox:`${id}/inbox`,outbox:`${id}/outbox`,followers:`${id}/followers`,following:`${id}/following`,url:id,publicKey:{id:`${id}#main-key`,owner:id,publicKeyPem:key.public_key_pem}}}
+function spaceActorDocument(db,spaceId){const c=db.prepare('SELECT id,name,description,icon,visibility,federation_mode FROM communities WHERE id=?').get(spaceId);if(!c||c.federation_mode==='off')return null;const id=spaceActorId(spaceId),key=ensureSpaceActorKey(db,spaceId),handle=ensureSpaceFederationHandle(db,spaceId),host=new URL(requirePublicBase()).host;return {'@context':[AS,'https://w3id.org/security/v1',{webfinger:'https://w3id.org/fep/2c59/webfinger',discoverable:'toot:discoverable',toot:'http://joinmastodon.org/ns#'}],id,type:'Group',preferredUsername:handle,webfinger:`acct:${handle}@${host}`,name:c.visibility==='public'?c.name:'PartiUp-Space',summary:c.visibility==='public'?(c.description||''):'',discoverable:c.visibility==='public',inbox:`${id}/inbox`,outbox:`${id}/outbox`,followers:`${id}/followers`,following:`${id}/following`,url:id,publicKey:{id:`${id}#main-key`,owner:id,publicKeyPem:key.public_key_pem}}}
 
 function orderedCollection(id,total,items=[]){return {'@context':AS,id,type:'OrderedCollection',totalItems:Number(total||0),orderedItems:items}}
 function parseSignatureHeader(v){const out={};String(v||'').replace(/([\w-]+)="([^"]*)"/g,(_,k,val)=>(out[k]=val));return out}
 function isForbiddenIp(address){
-  let ip=String(address||'').toLowerCase();
-  if(ip.startsWith('::ffff:')) ip=ip.slice(7);
-  if(net.isIP(ip)===4){
-    const p=ip.split('.').map(Number);const [a,b]=p;
-    return a===0||a===10||a===127||a>=224||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===100&&b>=64&&b<=127)||(a===198&&(b===18||b===19));
-  }
-  if(net.isIP(ip)===6){
-    return ip==='::'||ip==='::1'||ip.startsWith('fc')||ip.startsWith('fd')||/^fe[89ab]/.test(ip)||ip.startsWith('ff');
-  }
-  return true;
+  // Reuse the already locked, widely used IP parser instead of a partial CIDR list.
+  try{return require('ipaddr.js').process(String(address||'')).range()!=='unicast'}catch{return true}
 }
+
 async function resolvePublicHttps(raw){
   const u=new URL(raw);
   if(u.protocol!=='https:')throw new Error('Remote Federation URL muss HTTPS verwenden');
@@ -168,7 +171,23 @@ async function verifyLegacySignature(req,activity){
 }
 function signLegacyRequest({method,url,body='',keyId,privateKeyPem}){const u=new URL(url);const date=new Date().toUTCString();const headers={'Host':u.host,'Date':date,'Content-Type':'application/activity+json'};const signed=['(request-target)','host','date'];if(body){headers.Digest='SHA-256='+crypto.createHash('sha256').update(body).digest('base64');signed.push('digest')}
 const lines=signed.map(h=>h==='(request-target)'?`(request-target): ${method.toLowerCase()} ${u.pathname}${u.search}`:`${h}: ${headers[Object.keys(headers).find(k=>k.toLowerCase()===h)]}`);const signer=crypto.createSign('RSA-SHA256');signer.update(lines.join('\n'));signer.end();headers.Signature=`keyId="${keyId}",headers="${signed.join(' ')}",signature="${signer.sign(privateKeyPem).toString('base64')}"`;return headers}
+function refreshPublicationActivity(db,activity){
+  if(!['Create','Update','Announce'].includes(activity?.type))return activity;
+  const uri=typeof activity.object==='string'?activity.object:activity.object?.id;
+  const prefix=baseUrl()&&`${baseUrl()}/ap/objects/`;if(!prefix||typeof uri!=='string'||!uri.startsWith(prefix))return null;
+  const match=/^(posts|comments|events)\/([^/]+)$/.exec(uri.slice(prefix.length));if(!match)return null;
+  let id;try{id=decodeURIComponent(match[2])}catch{return null}
+  const current=match[1]==='posts'?noteForLocalPost(db,id):match[1]==='comments'?noteForLocalComment(db,id):eventForLocalEvent(db,id);
+  if(!current)return null;
+  return {...activity,object:current};
+}
+function requireCurrentPublication(db,activity){
+  const current=refreshPublicationActivity(db,activity);
+  if(!current)throw Object.assign(new Error('publication_no_longer_allowed'),{code:'FEDERATION_PUBLICATION_REVOKED'});
+  return current;
+}
 async function deliverActivity(db,localUserId,inbox,activity){
+  activity=requireCurrentPublication(db,activity);
   if(!isUserFederationEnabled(db,localUserId))throw new Error('User federation is disabled');
   const policy=evaluatePeer(db,{uri:inbox,direction:'outbound',action:'deliver'});if(!policy.allowed)throw new Error(`Federation policy blocked delivery: ${policy.reason}`);
   await resolvePublicHttps(inbox);
@@ -191,6 +210,7 @@ function isPublicObject(obj){
 function federationDecisionForPost(db,postId){
   const p=db.prepare(`SELECT p.id,p.author_id,p.federation_state,c.visibility community_visibility,c.federation_mode FROM posts p JOIN communities c ON c.id=p.community_id WHERE p.id=?`).get(postId);
   if(!p)return {allowed:false,reason:'post_not_found'};
+  const moderation=db.prepare("SELECT state FROM moderation_content_state WHERE target_type='post' AND target_id=?").get(postId);if(moderation&&moderation.state!=='active')return {allowed:false,reason:'post_moderated'};
   if(!isUserFederationEnabled(db,p.author_id))return {allowed:false,reason:'author_federation_disabled'};
   const mode=['off','public','selected'].includes(p.federation_mode)?p.federation_mode:'off';
   const state=['inherit','enabled','disabled'].includes(p.federation_state)?p.federation_state:'inherit';
@@ -214,7 +234,10 @@ function noteForLocalPost(db,postId){
 }
 function noteForLocalComment(db,commentId){
   const c=db.prepare(`SELECT cm.*,p.community_id,p.id post_id FROM comments cm JOIN posts p ON p.id=cm.post_id JOIN users u ON u.id=cm.author_id WHERE cm.id=? AND COALESCE(u.account_status,'active')='active'`).get(commentId);
-  if(!c||!federationDecisionForPost(db,c.post_id).allowed)return null;
+  if(!c||!isUserFederationEnabled(db,c.author_id)||!federationDecisionForPost(db,c.post_id).allowed)return null;
+  // A public parent is not consent to publish replies written inside a closed Space.
+  if(db.prepare('SELECT visibility FROM communities WHERE id=?').get(c.community_id)?.visibility!=='public')return null;
+  const moderation=db.prepare("SELECT state FROM moderation_content_state WHERE target_type='comment' AND target_id=?").get(commentId);if(moderation&&moderation.state!=='active')return null;
   const author=actorId(c.author_id), id=`${requirePublicBase()}/ap/objects/comments/${encodeURIComponent(c.id)}`;
   const parent=`${requirePublicBase()}/ap/objects/posts/${encodeURIComponent(c.post_id)}`,group=spaceActorId(c.community_id);const obj={'@context':AS,id,type:'Note',attributedTo:author,content:c.body,published:c.created_at,inReplyTo:parent,context:parent,audience:group,to:[publicAudience()],cc:[`${author}/followers`,`${group}/followers`]};const attachment=attachmentDocumentsForEntity(db,'comment',c.id,requirePublicBase());if(attachment.length)obj.attachment=attachment;return obj;
 }
@@ -293,15 +316,15 @@ async function flushDeliveryQueue(db,limit=20){
   const rows=db.prepare(`SELECT * FROM federation_delivery_queue WHERE status IN ('pending','retry') AND datetime(next_attempt_at)<=datetime('now') ORDER BY created_at LIMIT ?`).all(limit);
   for(const row of rows){
     try{const activity=JSON.parse(row.payload_json);await deliverActivity(db,row.local_user_id,row.inbox_uri,activity);db.prepare(`UPDATE federation_delivery_queue SET status='sent',last_error='',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(row.id);}
-    catch(e){const attempts=Number(row.attempts||0)+1,status=attempts>=5?'failed':'retry',delay=Math.min(3600,30*Math.pow(2,Math.min(attempts,6)));db.prepare(`UPDATE federation_delivery_queue SET status=?,last_error=?,attempts=?,next_attempt_at=datetime('now', ?),updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(status,String(e.message||'delivery failed').slice(0,500),attempts,`+${delay} seconds`,row.id)}
+    catch(e){if(e?.code==='FEDERATION_PUBLICATION_REVOKED')db.prepare("UPDATE federation_delivery_queue SET payload_json='{}' WHERE id=?").run(row.id);const attempts=Number(row.attempts||0)+1,status=e?.code==='FEDERATION_PUBLICATION_REVOKED'||attempts>=5?'failed':'retry',delay=Math.min(3600,30*Math.pow(2,Math.min(attempts,6)));db.prepare(`UPDATE federation_delivery_queue SET status=?,last_error=?,attempts=?,next_attempt_at=datetime('now', ?),updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(status,String(e.message||'delivery failed').slice(0,500),attempts,`+${delay} seconds`,row.id)}
   }
   return rows.length;
 }
 
 
 function announceActivityForGroup(db,spaceId,note){const group=spaceActorId(spaceId);return {'@context':AS,id:`${group}/activities/${crypto.randomUUID()}`,type:'Announce',actor:group,published:new Date().toISOString(),object:note,audience:group,to:[publicAudience()],cc:[`${group}/followers`]};}
-async function deliverSpaceActivity(db,spaceId,inbox,activity){const policy=evaluatePeer(db,{uri:inbox,spaceId,direction:'outbound',action:'deliver'});if(!policy.allowed)throw new Error(`Federation policy blocked delivery: ${policy.reason}`);await resolvePublicHttps(inbox);const key=ensureSpaceActorKey(db,spaceId),body=JSON.stringify(activity),id=spaceActorId(spaceId);const headers=signLegacyRequest({method:'POST',url:inbox,body,keyId:`${id}#main-key`,privateKeyPem:key.private_key_pem});const r=await safeHttpsRequest(inbox,{method:'POST',headers,body});if(r.status<200||r.status>=300)throw new Error(`Space delivery failed (${r.status})`);recordPeerObservation(db,{uri:inbox,spaceId,direction:'outbound',activityType:activity?.type||''});return r.status;}
+async function deliverSpaceActivity(db,spaceId,inbox,activity){activity=requireCurrentPublication(db,activity);const policy=evaluatePeer(db,{uri:inbox,spaceId,direction:'outbound',action:'deliver'});if(!policy.allowed)throw new Error(`Federation policy blocked delivery: ${policy.reason}`);await resolvePublicHttps(inbox);const key=ensureSpaceActorKey(db,spaceId),body=JSON.stringify(activity),id=spaceActorId(spaceId);const headers=signLegacyRequest({method:'POST',url:inbox,body,keyId:`${id}#main-key`,privateKeyPem:key.private_key_pem});const r=await safeHttpsRequest(inbox,{method:'POST',headers,body});if(r.status<200||r.status>=300)throw new Error(`Space delivery failed (${r.status})`);recordPeerObservation(db,{uri:inbox,spaceId,direction:'outbound',activityType:activity?.type||''});return r.status;}
 function queueActivityForSpaceFollowers(db,spaceId,activity){const rows=db.prepare(`SELECT remote_actor_uri,remote_inbox_uri FROM federation_space_followers WHERE local_space_id=? AND remote_inbox_uri<>''`).all(spaceId).filter(row=>evaluatePeer(db,{uri:row.remote_actor_uri||row.remote_inbox_uri,spaceId,direction:'outbound',action:'deliver'}).allowed);const ins=db.prepare(`INSERT INTO federation_space_delivery_queue(id,local_space_id,remote_actor_uri,inbox_uri,activity_uri,payload_json,status,next_attempt_at) VALUES (?,?,?,?,?,?,'pending',CURRENT_TIMESTAMP)`);const tx=db.transaction(()=>{db.prepare(`INSERT OR IGNORE INTO federation_activities(id,activity_uri,direction,activity_type,actor_uri,local_user_id,payload_json,status) VALUES (?,?,?,?,?,?,?,'queued')`).run('act-'+crypto.randomUUID(),String(activity.id||''),'out',String(activity.type||''),String(activity.actor||spaceActorId(spaceId)),null,JSON.stringify(activity));for(const row of rows)ins.run('space-delivery-'+crypto.randomUUID(),spaceId,row.remote_actor_uri,row.remote_inbox_uri,String(activity.id||''),JSON.stringify(activity))});tx();setImmediate(()=>flushSpaceDeliveryQueue(db).catch(e=>console.warn('Space federation delivery queue:',e.message)));return rows.length;}
-async function flushSpaceDeliveryQueue(db,limit=20){const rows=db.prepare(`SELECT * FROM federation_space_delivery_queue WHERE status IN ('pending','retry') AND datetime(next_attempt_at)<=datetime('now') ORDER BY created_at LIMIT ?`).all(limit);for(const row of rows){try{const activity=JSON.parse(row.payload_json);await deliverSpaceActivity(db,row.local_space_id,row.inbox_uri,activity);db.prepare(`UPDATE federation_space_delivery_queue SET status='sent',last_error='',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(row.id)}catch(e){const attempts=Number(row.attempts||0)+1,status=attempts>=5?'failed':'retry',delay=Math.min(3600,30*Math.pow(2,Math.min(attempts,6)));db.prepare(`UPDATE federation_space_delivery_queue SET status=?,last_error=?,attempts=?,next_attempt_at=datetime('now', ?),updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(status,String(e.message||'delivery failed').slice(0,500),attempts,`+${delay} seconds`,row.id)}}return rows.length;}
+async function flushSpaceDeliveryQueue(db,limit=20){const rows=db.prepare(`SELECT * FROM federation_space_delivery_queue WHERE status IN ('pending','retry') AND datetime(next_attempt_at)<=datetime('now') ORDER BY created_at LIMIT ?`).all(limit);for(const row of rows){try{const activity=JSON.parse(row.payload_json);await deliverSpaceActivity(db,row.local_space_id,row.inbox_uri,activity);db.prepare(`UPDATE federation_space_delivery_queue SET status='sent',last_error='',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(row.id)}catch(e){if(e?.code==='FEDERATION_PUBLICATION_REVOKED')db.prepare("UPDATE federation_space_delivery_queue SET payload_json='{}' WHERE id=?").run(row.id);const attempts=Number(row.attempts||0)+1,status=e?.code==='FEDERATION_PUBLICATION_REVOKED'||attempts>=5?'failed':'retry',delay=Math.min(3600,30*Math.pow(2,Math.min(attempts,6)));db.prepare(`UPDATE federation_space_delivery_queue SET status=?,last_error=?,attempts=?,next_attempt_at=datetime('now', ?),updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(status,String(e.message||'delivery failed').slice(0,500),attempts,`+${delay} seconds`,row.id)}}return rows.length;}
 
-module.exports={AS,AP_ACCEPT,remoteFetchPolicy,baseUrl,requirePublicBase,actorId,spaceActorId,fetchActor,normalizeHandle,defaultHandleForUser,userFederationSettings,isUserFederationEnabled,ensureFederationHandle,userIdForHandle,defaultHandleForSpace,ensureSpaceFederationHandle,spaceIdForHandle,installProtocolSchema,ensureActorKey,ensureSpaceActorKey,rotateActorKey,rotateSpaceActorKey,actorDocument,spaceActorDocument,orderedCollection,verifyLegacySignature,deliverActivity,deliverSpaceActivity,resolvePublicHttps,safeHttpsRequest,isForbiddenIp,publicAudience,stripRemoteHtml,isPublicObject,federationDecisionForPost,noteForLocalPost,noteForLocalComment,eventFederationDecision,eventForLocalEvent,createActivityForEvent,joinActivityForEvent,leaveActivityForEvent,attendanceDecisionActivity,updateActivityForEvent,deleteActivityForEvent,queueEventFederation,isoDateTimeWithZone,createActivityForNote,updateActivityForNote,deleteActivityForObject,announceActivityForGroup,queueActivityForFollowers,queueActivityForSpaceFollowers,flushDeliveryQueue,flushSpaceDeliveryQueue};
+module.exports={refreshPublicationActivity,AS,AP_ACCEPT,remoteFetchPolicy,baseUrl,requirePublicBase,actorId,spaceActorId,fetchActor,normalizeHandle,defaultHandleForUser,userFederationSettings,isUserFederationEnabled,ensureFederationHandle,userIdForHandle,defaultHandleForSpace,ensureSpaceFederationHandle,spaceIdForHandle,installProtocolSchema,ensureActorKey,ensureSpaceActorKey,rotateActorKey,rotateSpaceActorKey,actorDocument,spaceActorDocument,orderedCollection,verifyLegacySignature,deliverActivity,deliverSpaceActivity,resolvePublicHttps,safeHttpsRequest,isForbiddenIp,publicAudience,stripRemoteHtml,isPublicObject,federationDecisionForPost,noteForLocalPost,noteForLocalComment,eventFederationDecision,eventForLocalEvent,createActivityForEvent,joinActivityForEvent,leaveActivityForEvent,attendanceDecisionActivity,updateActivityForEvent,deleteActivityForEvent,queueEventFederation,isoDateTimeWithZone,createActivityForNote,updateActivityForNote,deleteActivityForObject,announceActivityForGroup,queueActivityForFollowers,queueActivityForSpaceFollowers,flushDeliveryQueue,flushSpaceDeliveryQueue};

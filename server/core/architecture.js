@@ -48,7 +48,7 @@ function architectureSnapshot(){
     interoperability: INTEROPERABILITY,
     principles: [
       'mobile-first-ux','participation-as-core-product','space-linking-as-core',
-      'privacy-by-design','security-by-design','api-readiness','federation-first',
+      'privacy-by-design','security-by-design','least-privilege','retrofit-required','verified-components','signed-releases','api-readiness','federation-first',
       'connector-readiness','integration-readiness','provider-neutral-normalization','extension-readiness','municipal-participation-readiness','accessible-by-design'
     ]
   };

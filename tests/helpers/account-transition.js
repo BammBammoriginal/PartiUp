@@ -53,6 +53,33 @@ module.exports = function registerAccountTransition() {
       await page.locator('[data-admin-jump="rights"]').click();
       await expect(page.locator('[data-permission-box]')).toContainText('Personen & Rollen');
       await assertNoHorizontalOverflow(page);
+      // Provision only fixture membership; both accounts still log in visibly.
+      const communityId=await page.evaluate(()=>decodeURIComponent(location.hash.split('/')[1]));
+      const fixtureDb=new (require('better-sqlite3'))(path.join(directory,'test.db'));
+      fixtureDb.prepare("INSERT INTO memberships(community_id,user_id,role) VALUES (?,'u-max','member')").run(communityId);
+      fixtureDb.close();
+      const csrf=(await (await context.request.get('/api/security/csrf')).json()).csrf;
+      const granted=await context.request.put(`/api/permissions/community/${communityId}/overrides`,{headers:{'X-BUP-CSRF':csrf},data:{role:'member',permission:'space.edit_profile',effect:'allow'}});
+      expect(granted.status()).toBe(200);
+      const editorContext=await browser.newContext({baseURL,viewport,storageState:{cookies:[],origins:[]}});
+      try{
+        const editor=await editorContext.newPage(),editorGuard=captureRuntimeFailures(editor);
+        await waitForApp(editor);await openIdentity(editor);
+        await editor.locator('#loginEmail').fill('max@bottomupparti.local');
+        await editor.locator('#loginPassword').fill('demo123');await editor.locator('#login').click();
+        await expect(editor.locator('#userName')).toHaveText('Max');
+        await editor.goto(`/#community/${communityId}/admin`);
+        await expect(editor.locator('#community-space')).toHaveClass(/active/);
+        await expect(editor.locator('#communityLogoInput').locator('..')).toBeVisible();
+        await expect(editor.locator('#saveSpaceModules')).toHaveCount(0);
+        await expect(editor.locator('#saveCommunityAccess')).toHaveCount(0);
+        await expect(editor.locator('#spaceExtensions')).toHaveCount(0);
+        await editor.locator('[data-admin-jump="setup"]').click();
+        await expect(editor.locator('#saveSpaceProfile')).toBeVisible();
+        await expect(editor.locator('#finishSpaceSetup')).toHaveCount(0);
+        await assertNoHorizontalOverflow(editor);editorGuard.assertClean();
+      }finally{await editorContext.close()}
+
       await openIdentity(page);
       await page.locator('#logout').click();
       await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');

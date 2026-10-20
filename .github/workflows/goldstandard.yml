@@ -4,6 +4,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Nach bestandenen Tests signiertes Quellpaket erzeugen'
+        type: boolean
+        default: false
+      approved_sha:
+        description: 'Unabhaengig gepruefter vollstaendiger main-Commit fuer den Release'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -22,16 +31,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Use Node.js 22
+      - name: Use Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify dependency integrity and registry signatures before native build
+        run: |
+          npm run supply-chain-preflight
+          npm audit signatures
+          npm run audit:prod
+          npm run audit:all
+
+      - name: Build the reviewed SQLite dependency from source
+        run: |
+          PARTIUP_NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          npm_config_nodedir="$PARTIUP_NODE_ROOT" npm run deps:build
 
       - name: Install Chromium and system libraries
-        run: npx playwright install --with-deps chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Check architecture and static gates
         run: npm run preflight
@@ -42,6 +63,9 @@ jobs:
       - name: Exercise desktop and mobile Goldstandard
         run: npm run qa:gold
 
+      - name: Exercise supplementary smoke, layout and accessibility gates
+        run: npm run qa:smoke && npm run qa:layout && npm run qa:accessibility
+
       - name: Save browser evidence if a test fails
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -50,3 +74,36 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 3
+
+  attest-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main' && github.sha == inputs.approved_sha
+    needs: goldstandard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release-signing
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Package the exact tested source and dependency inventory
+        env:
+          PARTIUP_APPROVED_RELEASE_SHA: ${{ inputs.approved_sha }}
+        run: node scripts/build-release.js
+      - name: Attest source, manifest and SBOM; no unsigned release fallback
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4, verified upstream commit
+        with:
+          subject-path: 'release-evidence/*'
+      - name: Retain signed release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: partiup-signed-source-${{ github.sha }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 30

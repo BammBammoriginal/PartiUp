@@ -16,11 +16,13 @@ echo npm:
 call npm.cmd --version
 echo.
 echo Installiere und synchronisiere Abhaengigkeiten...
-call npm.cmd install
+call npm.cmd ci --ignore-scripts
 if errorlevel 1 goto :fail
 echo.
 echo Baue SQLite-Modul...
-call npm.cmd rebuild better-sqlite3
+call npm.cmd audit signatures
+if errorlevel 1 goto :fail
+call npm.cmd run deps:build
 if errorlevel 1 goto :fail
 echo.
 echo Pruefe ALLE Abhaengigkeiten auf bekannte Schwachstellen...

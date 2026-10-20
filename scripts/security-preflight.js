@@ -25,7 +25,7 @@ const checks=[
  ['Account deletion/anonymization endpoint exists', /\/api\/privacy\/delete-account/.test(server)],
  ['No request-body logging', !/console\.log\(req\.body/.test(server)],
  ['Privacy defaults restriktiv', db.includes("memberships_visibility TEXT NOT NULL DEFAULT 'private'")&&db.includes("follows_visibility TEXT NOT NULL DEFAULT 'private'")&&db.includes("event_attendance_visibility TEXT NOT NULL DEFAULT 'private'")],
- ['Private Community Zugriff backendseitig geprüft', db.includes("row.visibility==='private'")],
+ ['Private Community Zugriff backendseitig geprüft', (db.includes("function canViewCommunityRow")&&db.includes("if(!canViewCommunityRow(row,userId)) return null"))],
  ['Access Control wird serverseitig erzwungen', server.includes('communityAccessDecision')&&server.includes('canRequestEventAttendance')&&db.includes('hasApprovedEventAttendance')],
  ['Frontend HTML escapes user text', /function esc\(/.test(app)],
  ['Concrete XSS render paths hardened', /function connectionChip\(type,entity,opts=\{\}\).*escAttr\(String\(id\)\).*esc\(label\)/.test(app)&&/function relationPills\(o\).*connectionGroup\('place'/.test(app)&&/safeIcon\(c\.icon/.test(app)&&/safeIcon\(p\.icon/.test(app)],
