@@ -60,7 +60,12 @@ Die Regeln sind über viele Dokumente verteilt; diese Zusammenfassung verweist a
 - Produktfehler zuerst mit einem Test **rot** reproduzieren, minimal korrigieren, Test grün, dann alle Gates laufen lassen und den Git-Diff auf Seiteneffekte prüfen.
 - Jede Störung einordnen: Produkt-, Test-, Umgebungsfehler oder geteilte Ursache, mit Beleg (Trace/Screenshot). Eine Testkorrektur darf kein echtes Nutzerproblem verdecken.
 - Ehrliche QA: keine pauschalen Wartezeiten, `force`-Klicks, Login-/API-Bypässe, höheren Timeouts, Retries oder gelockerten Rate-Limits. Bereitschaft am sichtbaren UI-Zustand messen, nicht nur an HTTP 200.
-- Tests prüfen Fachwirkung und Endzustand, nicht starr Labels/Tabnamen. Wie ein Nutzer klicken (z. B. Kartentitel statt Kartenmitte).
+- **Robuste statt starrer Tests** (Nutzervorgabe vom 20.10.2026). Starre Tests, die nach korrekten Änderungen rot werden, waren das wiederkehrende Hauptproblem: Die Preflights enthalten rund 1.000 Zeichenkettenprüfungen auf den Quelltext.
+  - Neue Prüfungen testen beobachtbare Wirkung (HTTP-Status, Daten, gespeicherter Zustand, sichtbares Ergebnis), keine neuen `includes()`-Checks auf den Quelltext, außer für anders nicht prüfbare Invarianten (Grund kommentieren).
+  - Browser-Tests bedienen wie ein Mensch: Rolle und zugänglicher Name, sichtbarer Titel oder ausdrücklich als Testvertrag gedachte `data-*`-Attribute. Nicht Kartenmitte, CSS-Klassen, DOM-Position oder starre Tabnamen.
+  - Wird ein Test rot: erst einordnen. Ist er an die Umsetzung gekoppelt, auf Verhalten umschreiben statt die neue Zeichenkette nachzutragen.
+  - Alte Zeichenketten-Preflights schrittweise ersetzen, wenn der Bereich ohnehin angefasst wird.
+  - Flexibler heißt nie schwächer: Sicherheits-, Privacy- und Rechteaussagen bleiben mindestens gleich streng.
 - Desktop- und Mobile-Annahmen nie in einem Test mischen (Desktop = Sidebar, Mobile = Bottom-Nav/Drawer `#mobileMore`).
 - Rechte-/Privacy-Änderungen brauchen einen serverseitigen Negativtest; neue Ansichten/Kachelvarianten einen Smoke-/Layout-Test.
 - Ohne echten Chromium-Lauf (Desktop **und** Mobile) keine Freigabe; nicht Ausgeführtes ausdrücklich als „ungeprüft“ benennen. Visual-Baselines nur nach bewusster Sichtprüfung aktualisieren.
