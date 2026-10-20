@@ -52,6 +52,8 @@ Abnahme erst nach dem vollständigen Lauf und Merge.
 | R18 | kritisch – sofort anpassen | Setups benutzten `npm install` und unbeschränkte Installationsskripte; native Zweitdownloads waren nicht durch das Lockfile abgesichert. | `npm ci --ignore-scripts`, Signaturen und exakte Lock-/Origin-/Integrity-Policies; nur SQLite gezielt aus geprüftem Quellpaket bauen. Windows-Buildvoraussetzungen offen benannt. |
 | R19 | relevant – vor nächstem Release anpassen | Keine verbindliche Release-Authentizitätsprüfung, Inventarliste oder erzwungene Signatur vor Verteilung. | Manueller, nach Tests getrennter Attestationsjob; Quellpaket/SBOM/Manifest, exakter freigegebener Commit, keine Daten/Secrets, kein unsignierter Fallback. Tatsächlicher Signierbetrieb bleibt gesondert offen. |
 
+| R20 | kritisch – sofort anpassen | Der neue Audit-Lauf findet `sharp` 0.35.4 mit GHSA-wq5f-xc86-pv6w in librsvg. | Auf den Hersteller-Patch 0.35.5 einschließlich Plattformpaketen/Lockfile aktualisiert. Nicht unterstütztes SVG zusätzlich vor dem Parsen gesperrt; als PNG getarnter SVG-Upload wird per HTTP getestet. |
+
 ## Bereits korrekt abgedeckt und beibehalten
 
 - Serverseitige Passwortprüfung mit scrypt; zufällige, in der DB gehashte

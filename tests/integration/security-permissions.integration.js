@@ -144,9 +144,9 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     const protocol=require('../../server/federation/protocol');
     try{
       const image=await require('sharp')({create:{width:2,height:2,channels:4,background:{r:1,g:2,b:3,alpha:1}}}).png().toBuffer();
-      async function upload(jar,url,fields={}){
+      async function upload(jar,url,fields={},buffer=image){
         const form=new FormData();for(const [key,value] of Object.entries(fields))form.append(key,value);
-        form.append('image',new Blob([image],{type:'image/png'}),'private-file-name.png');
+        form.append('image',new Blob([buffer],{type:'image/png'}),'private-file-name.png');
         const result=await fetch(base+url,{method:'POST',headers:{Cookie:cookieHeader(jar),'X-BUP-CSRF':jar.csrf},body:form});
         return {status:result.status,data:await result.json()};
       }
@@ -156,6 +156,8 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
         check(name+' is never publicly cached',response.headers.get('cache-control')==='private, no-store');
         await response.arrayBuffer();
       }
+      const disguisedSvg=await upload(max,`/api/communities/${privateId}/posts-with-media`,{body:'Disguised SVG'},Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"></svg>'));
+      check('SVG disguised as an allowed PNG is rejected before decoding',disguisedSvg.status===400);
       const photo=await upload(max,`/api/communities/${privateId}/posts-with-media`,{body:'Private media boundary'});
       check('Owner uploads a private-Space image',photo.status===201,JSON.stringify(photo.data));
       const imageUrl=photo.data.media.variants.medium;

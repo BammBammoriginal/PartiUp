@@ -100,9 +100,9 @@
   "dependencies": {
     "better-sqlite3": "12.11.1",
     "express": "4.22.2",
+    "ipaddr.js": "1.9.1",
     "multer": "2.4.0",
-    "sharp": "0.35.4",
-    "ipaddr.js": "1.9.1"
+    "sharp": "0.35.5"
   },
   "overrides": {
     "body-parser": "1.20.6",
