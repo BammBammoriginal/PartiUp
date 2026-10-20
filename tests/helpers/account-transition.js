@@ -3,10 +3,27 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { waitForApp, openIdentity, closeMobileDrawer, fillObjectForm, openCreation, assertNoHorizontalOverflow, captureRuntimeFailures } = require('./gold');
+const { waitForApp, openIdentity, closeMobileDrawer, fillObjectForm, openCreation, assertNoHorizontalOverflow, captureRuntimeFailures, loginAsMax, go } = require('./gold');
 
 module.exports = function registerAccountTransition() {
   test.setTimeout(30_000);
+  test('Verspätete Profilantwort darf den Wechsel zu Chats nicht rückgängig machen',async({page})=>{
+    await loginAsMax(page);
+    let release;const held=new Promise(resolve=>{release=resolve});
+    await page.route('**/api/users/u-anna',async route=>{await held;await route.continue()});
+    const requested=page.waitForRequest(r=>r.url().endsWith('/api/users/u-anna'));
+    const response=page.waitForResponse(r=>r.url().endsWith('/api/users/u-anna'));
+    try{
+      await page.goto('/#person/u-anna');await requested;
+      await go(page,'messages');
+      await expect(page.locator('#messages')).toHaveClass(/active/);
+      release();const loaded=await response;expect(loaded.status()).toBe(200);await loaded.finished();
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      await expect(page.locator('#messages')).toHaveClass(/active/);
+      await expect(page.locator('#person-space')).not.toHaveClass(/active/);
+      expect(await page.evaluate(()=>location.hash)).toBe('');
+    }finally{release();await page.unroute('**/api/users/u-anna')}
+  });
   test('Kontowechsel entfernt Verwaltung und private Ansichten; Anmeldung per Enter', async ({ browser, viewport }) => {
     // A fresh process gives this scenario its own database and normal rate limits.
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'partiup-account-transition-'));
@@ -82,7 +99,7 @@ module.exports = function registerAccountTransition() {
         await expect(editor.locator('#saveSpaceProfile')).toBeVisible();
         await expect(editor.locator('#finishSpaceSetup')).toHaveCount(0);
         await editor.locator('[data-ctab="events"]').click();
-        await editor.locator(`[data-event="${editorEvent.id}"]`).first().click();
+        await editor.locator(`#communitySpaceContent [data-event="${editorEvent.id}"]`).first().click();
         await expect(editor.locator('#objectImageInput')).toHaveCount(0);
         await editor.locator('[data-otab="admin"]').click();
         await expect(editor.locator('#objectImageInput').locator('..')).toBeVisible();

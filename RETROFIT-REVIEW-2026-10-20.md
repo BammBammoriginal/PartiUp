@@ -56,6 +56,8 @@ Abnahme erst nach dem vollständigen Lauf und Merge.
 
 | R21 | relevant – vor nächstem Release anpassen | Node 24 löste mit dem alten SQLite-Treiber 12.11.1 einen nativen `RemoveEnvironmentCleanupHook`-Absturz im vollständigen Lauf aus. | Hersteller-N-API-Version 13.0.3 statt eigener nativer Patches; Lock/Signatur-Gates vor Laden, Herkunftsprüfung und GC-Stresstest mit echten Core-Projektionen. Neue SQLite-Version zusätzlich durch Integrations-/Recoverytests prüfen. |
 
+| R22 | relevant – vor nächstem Release anpassen | Eine verspätete Profil-/Space-Antwort nach Reload konnte die neu gewählte Chatansicht wieder verdrängen; alte Profil-Hashes blieben bei Hauptnavigation bestehen. | Veraltete Navigationsantworten verwerfen und Hauptnavigation vom alten Hash lösen; deterministisch verzögerte echte Profilantwort auf Desktop/Mobil sowie bestehender Chat-Reload-/Reaktionstest. |
+
 ## Bereits korrekt abgedeckt und beibehalten
 
 - Serverseitige Passwortprüfung mit scrypt; zufällige, in der DB gehashte
