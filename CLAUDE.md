@@ -44,11 +44,42 @@ Die Regeln sind über viele Dokumente verteilt; diese Zusammenfassung verweist a
 - Rechte-/Privacy-Änderungen brauchen einen serverseitigen Negativtest; neue Ansichten/Kachelvarianten einen Smoke-/Layout-Test.
 - Ohne echten Chromium-Lauf (Desktop **und** Mobile) keine Freigabe; nicht Ausgeführtes ausdrücklich als „ungeprüft“ benennen. Visual-Baselines nur nach bewusster Sichtprüfung aktualisieren.
 
-### Architektur (`PARTIUP-P0.1-ARCHITECTURE.md`)
+### Schlanker Core, Erweiterbarkeit und Interoperabilität in alle Richtungen
 
-- Core (Identität, Spaces, Beziehungen, Rechte, Moderation, Feed …) vs. Module (Events, Projekte, Diskussion, Aufgaben, Medien) vs. Föderation (ActivityPub) vs. Connectors (RSS, AT Protocol …) vs. Integrations (Decidim, WeChange …).
-- Erweiterungen sind technisch modular, in der UX integriert und unter Info transparent; externe ausführbare Plugins sind gesperrt (`README-PARTIUP-P0.10.md`).
-- Herkunft externer Objekte bleibt sichtbar; externe Vorgänge sind lokal read-only.
+PartiUp ist nicht als abgeschlossene Plattform gedacht. Es ist ein stabiler, bewusst schlanker Kern, der über Erweiterungen wächst, Teil des Fediverse ist und sich mit anderen Systemen (CivicTech/GovTech, Feeds, andere Netzwerke) verbinden lässt, sowohl als anbindender als auch als angebundener Teil. Das ist eine tragende Produktsäule und kein Zusatz.
+
+- **Schichten strikt trennen** (`PARTIUP-P0.1-ARCHITECTURE.md`, `README-PARTIUP-P0.15.md`):
+  - Core: Identität, Spaces, Beziehungen, Orte/Themen, Rechte, Moderation, Feed, Participation Core.
+  - Module: Veranstaltungen, Projekte, Diskussion, Aufgaben, Medien.
+  - Föderation: ActivityPub in `server/federation/`.
+  - Connectors: Nicht-ActivityPub-Systeme wie RSS/Atom, AT Protocol/Bluesky und generische APIs in `server/connectors/`.
+  - Integrations: fachliche CivicTech-Anbindungen wie Decidim, Consul Democracy, WeChange und öffentliche Demokratiedaten in `server/integrations/`.
+  - Erweiterungen: Space-Funktionen mit Manifest in `server/extensions/`.
+- **Core klein halten.** Neue Fachfunktionen zuerst als Modul oder Erweiterung auf bestehenden Core-Bausteinen bauen, nicht als neue Sonderlogik im Core. Kommunale Fachverfahren gehören z. B. nicht in den Core, sondern in ein späteres Paket `municipal.participation` (`README-PARTIUP-P0.9.md`). Reihenfolge: **wiederverwenden → integrieren → föderieren → erst dann selbst entwickeln** (ADR-0001).
+- **Internes Modell zuerst, externe Abbildung danach.** Kein Anbieter (Mastodon, Mobilizon, Decidim …) bestimmt das PartiUp-Datenmodell. Föderations-Metadaten liegen getrennt in `federation_entities`, externe Herkunft anbieterneutral in `external_sources`/`object_source_links`, ohne anbieterspezifische Tabellen.
+- **ActivityPub-Abbildung:** Person ↔ Nutzer, Group ↔ Community/Space, Note ↔ Beitrag/Kommentar, Event ↔ Veranstaltung, inklusive Join/Leave/Accept/Reject, Medienanhänge und Tombstones (`PARTIUP-P0.2-ACTIVITYPUB-MODEL.md`, P0.3–P0.14). Föderierte Inhalte erscheinen in derselben PartiUp-Oberfläche mit sichtbarer Herkunft, nicht in einem getrennten Fediverse-Bereich (P0.11).
+- **Föderation ist kontrolliert offen.**
+  - Instanz-Governance `open|reviewed|allowlist` plus Peer-Regeln pro Space (P0.8).
+  - Eingehende Föderation pro Space getrennt einstellbar: lesen, Antworten, Threads (P0.6).
+  - Teilnehmerlisten werden nie föderiert.
+  - Die jeweils restriktivere Regel gewinnt.
+- **Erweiterungen:**
+  - Jede Erweiterung hat ein Manifest mit Capabilities, Datenzugriff, Netzwerkzugriff und UI-Flächen.
+  - Beim Aktivieren wird die Änderung auditiert.
+  - Für Nutzer erscheint sie als normale Space-Funktion und ist unter „ⓘ Info“ offengelegt (`README-PARTIUP-P0.10.md`).
+  - Externe ausführbare Plugins bleiben gesperrt, bis Herkunftsprüfung, Isolation, Capability-Durchsetzung und ein Update-/Rollback-Weg existieren.
+- **Connectors und Integrations:**
+  - Read-only first; Rückschreiben nur mit eigenem, dokumentiertem Rechte- und Konfliktentscheid.
+  - Capabilities werden vorab erklärt, nur HTTPS, Payloads werden normalisiert.
+  - Jede Herkunft bleibt sichtbar (Anbieter, externe ID, kanonische URL).
+  - Kein versteckter Sync, kein Crawler, kein offener Proxy, kein Tracking.
+  - Eine Integration erweitert nie lokale Rechte. Decidim und Consul bleiben eigenständige Systeme und werden nicht in den Core kopiert (`server/connectors/README.md`, `server/integrations/README.md`).
+- **Eine kanonische Quelle pro Objekt, eine Nutzeroberfläche.** Externe Systeme bekommen keine parallele Community-Oberfläche (ADR-0001).
+- **Stand 2026-10-20:**
+  - ActivityPub ist umgesetzt, aber noch nicht mit echten Instanzen über eine eigene HTTPS-Domain gegengetestet.
+  - Verfügbare Erweiterung: `partiup.resources`.
+  - Connectors (RSS/Atom, ATProto) und Integrations (Decidim, Consul Democracy, WeChange, Demokratiedaten) sind als `planned_adapter` katalogisiert; das Framework steht, Adapter fehlen.
+  - Nicht als fertig ausgeben.
 
 ### Noch nicht in `main` (Stand 2026-10-20)
 
