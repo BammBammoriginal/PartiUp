@@ -18,3 +18,10 @@ Du bist zunächst der ausführende Coding-Agent. Plane die kleinste saubere Änd
 
 ## Grenzen
 Kein direkter Push nach `main`, kein eigenmächtiger Merge, kein produktiver Rollout, keine irreversiblen Datenbankaktionen oder Lockerungen der Sicherheit ohne ausdrückliche Freigabe.
+
+## Verbindlicher Modernisierungsauftrag
+Die menschliche Übernahmefähigkeit von PartiUp ist **ein aktiver Entwicklungsauftrag**, nicht nur eine allgemeine Qualitätsregel. Lies `docs/HUMAN-HANDOVER-ROADMAP.md` vollständig. Erfasse den Fortschritt zu jeder Etappe in GitHub-Issues und im Projektregister.
+
+Beginne mit Etappe 1 (Bestandsaufnahme), nicht mit einem massiven Refactoring. Starte die nächste Code-Etappe nur nach Prüfung/Freigabe des vorherigen PR. Für jede Etappe: genaue Akzeptanzkriterien, betroffene aktive Codepfade, Test-Vorher/Nachher-Nachweise und Review bereithalten. Ein bloß angelegter Adapter ohne produktiven Aufrufer ist keine Umsetzung.
+
+Wenn diese Datei noch in einem offenen Dokumentations-PR liegt, zuerst den Dokumentationsstand mit der verantwortlichen Person abstimmen; niemals eigenmächtig `main` überschreiben oder unfreigegebene Änderungen mergen.
