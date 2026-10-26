@@ -356,8 +356,9 @@ app.get('/api/federation/discovery-check',(req,res)=>{
     const configured=!!baseUrl(); if(!configured)return res.status(503).json({ok:false,error:'federation_not_configured'});
     const host=new URL(baseUrl()).host.toLowerCase();
     const requested=String(req.query.handle||'max').trim().toLowerCase();
-    const userId=userIdForHandle(db,requested); if(!userId)return res.status(404).json({ok:false,error:'handle_not_found',handle:requested});
-    const actor=actorDocument(db,userId); if(!actor)return res.status(404).json({ok:false,error:'user_federation_disabled'}); const handle=actor.preferredUsername; const acct=`acct:${handle}@${host}`;
+    // An unknown handle and a person without federation opt-in must look the same (no account enumeration).
+    const userId=userIdForHandle(db,requested); if(!userId)return res.status(404).json({ok:false,error:'not_found'});
+    const actor=actorDocument(db,userId); if(!actor)return res.status(404).json({ok:false,error:'not_found'}); const handle=actor.preferredUsername; const acct=`acct:${handle}@${host}`;
     const checks={
       handleMapped:handle===requested,
       preferredUsernameMatches:actor.preferredUsername===handle,
@@ -392,12 +393,26 @@ app.get('/api/federation-media/:id',federationMediaLimit,async(req,res)=>{
   }catch(e){console.warn('Federation media proxy:',String(e?.message||'failed').slice(0,100));return res.status(502).end();}
 });
 app.get('/api/federation/model',(req,res)=>res.json(modelSnapshot()));
+// The registry holds every local object, including private ones and people without federation opt-in.
+// Describe only what ActivityPub currently publishes (same decision as the /ap endpoints), never remote
+// snapshots or internal fields; everything else looks absent.
+function federationPublicationExists(type,id){
+  try{
+    if(type==='user')return !!actorDocument(db,id);
+    if(type==='community')return !!spaceActorDocument(db,id);
+    if(type==='post')return !!noteForLocalPost(db,id);
+    if(type==='comment')return !!noteForLocalComment(db,id);
+    if(type==='event')return !!eventForLocalEvent(db,id);
+  }catch{return false}
+  return false;
+}
 app.get('/api/federation/entity/:type/:id',(req,res)=>{
   const type=String(req.params.type||'');
   if(!ENTITY_MAPPINGS[type]) return res.status(400).json({error:'unsupported_entity_type'});
   const row=getFederationEntity(db,type,req.params.id);
-  if(!row) return res.status(404).json({error:'not_found'});
-  return res.json({...describeEntity(type,req.params.id),registry:row});
+  if(!row||!row.is_local||!federationPublicationExists(type,req.params.id)) return res.status(404).json({error:'not_found'});
+  const {entity_type,entity_id,activity_type,entity_kind,local_path,canonical_uri}=row;
+  return res.json({...describeEntity(type,req.params.id),registry:{entity_type,entity_id,activity_type,entity_kind,is_local:1,local_path,canonical_uri}});
 });
 
 app.get('/api/bootstrap',(req,res)=>{const userId=currentUserId(req),data=bootstrap(userId);data.message_recipients=messageRecipients(userId);res.json(data)});
