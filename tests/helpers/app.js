@@ -136,4 +136,23 @@ async function assertNoOverlaps(page, selector) {
   expect(overlaps, `overlapping elements for ${selector}`).toEqual([]);
 }
 
-module.exports = { waitForApp, assertAuthenticated, loginAsMax, go, assertNoHorizontalOverflow, assertNoOverlaps };
+// Cards carry their own title as a native button that points back at the card's
+// object. Tapping it is what a person does; tapping the card centre can land on a
+// place/topic chip depending on viewport and font metrics.
+const CARD_IDENTITIES = [['id', 'community'], ['event', 'event'], ['project', 'project'], ['participation', 'participation'], ['user', 'person']];
+
+async function openCardByTitle(card) {
+  await expect(card).toBeVisible();
+  for (const [attribute, type] of CARD_IDENTITIES) {
+    const id = await card.getAttribute(`data-${attribute}`);
+    if (!id) continue;
+    const title = card.locator(`[data-connection-type="${type}"][data-connection-id="${id}"]`);
+    await expect(title).toHaveCount(1);
+    const name = (await title.innerText()).trim();
+    await title.click();
+    return name;
+  }
+  throw new Error('Card has no known object identity attribute');
+}
+
+module.exports = { waitForApp, assertAuthenticated, loginAsMax, go, assertNoHorizontalOverflow, assertNoOverlaps, openCardByTitle };

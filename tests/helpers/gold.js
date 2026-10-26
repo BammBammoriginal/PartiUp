@@ -1,6 +1,6 @@
 const { expect } = require('@playwright/test');
 const sharp = require('sharp');
-const { waitForApp, loginAsMax, go, assertNoHorizontalOverflow } = require('./app');
+const { waitForApp, loginAsMax, go, assertNoHorizontalOverflow, openCardByTitle } = require('./app');
 
 function uniqueName(prefix) {
   return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -104,8 +104,7 @@ async function createParticipation(page, name) {
 async function openOwnedCommunity(page) {
   await go(page, 'communities');
   const card = page.locator('#communities-list .community[data-mine="1"]').filter({ hasText: /owner|admin|moderator/i }).first();
-  await expect(card).toBeVisible();
-  await card.click();
+  await openCardByTitle(card);
   await expect(page.locator('#community-space')).toHaveClass(/active/);
   return page.locator('#communitySpaceContent h2').first().textContent();
 }

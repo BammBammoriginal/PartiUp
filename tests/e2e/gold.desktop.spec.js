@@ -19,6 +19,7 @@ const {
   assertChatMediaLayout,
   openAndCloseChatMediaViewer
 } = require('../helpers/gold');
+const { openCardByTitle } = require('../helpers/app');
 
 test.setTimeout(30_000);
 
@@ -192,12 +193,14 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#topic-grid .topic-detail')).toBeVisible();
 
     await go(page, 'communities');
-    await page.locator('#communities-list .community').first().click();
+    const communityName = await openCardByTitle(page.locator('#communities-list .community').first());
     await expect(page.locator('#community-space')).toHaveClass(/active/);
+    await expect(page.locator('#community-space')).toContainText(communityName);
 
     await go(page, 'people');
-    await page.locator('#people-list .person-card').first().click();
+    const personName = await openCardByTitle(page.locator('#people-list .person-card').first());
     await expect(page.locator('#person-space')).toHaveClass(/active/);
+    await expect(page.locator('#person-space')).toContainText(personName);
   });
 
   test('Unterhaltung starten, Nachricht senden und nach Reload wiederfinden', async ({ page }) => {

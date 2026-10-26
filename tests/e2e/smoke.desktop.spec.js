@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { assertAuthenticated, go, assertNoHorizontalOverflow } = require('../helpers/app');
+const { assertAuthenticated, go, assertNoHorizontalOverflow, openCardByTitle } = require('../helpers/app');
 
 test.describe('desktop core smoke paths', () => {
   test.beforeEach(async ({ page }) => assertAuthenticated(page));
@@ -16,35 +16,31 @@ test.describe('desktop core smoke paths', () => {
 
   test('community opens as full space with registers', async ({ page }) => {
     await go(page, 'communities');
-    const first = page.locator('#communities-list .community').first();
-    await expect(first).toBeVisible();
-    await first.click();
+    const name = await openCardByTitle(page.locator('#communities-list .community').first());
     await expect(page.locator('#community-space')).toHaveClass(/active/);
+    await expect(page.locator('#community-space')).toContainText(name);
   });
 
   test('person profile opens from people list', async ({ page }) => {
     await go(page, 'people');
-    const person = page.locator('#people-list .person-card').first();
-    await expect(person).toBeVisible();
-    await person.click();
+    const name = await openCardByTitle(page.locator('#people-list .person-card').first());
     await expect(page.locator('#person-space')).toHaveClass(/active/);
+    await expect(page.locator('#person-space')).toContainText(name);
   });
 
   test('event opens and exposes participation action', async ({ page }) => {
     await go(page, 'events');
-    const event = page.locator('#events-list .event-clickable').first();
-    await expect(event).toBeVisible();
-    await event.click();
+    const name = await openCardByTitle(page.locator('#events-list .event-clickable').first());
     await expect(page.locator('#modal')).toHaveClass(/show/);
+    await expect(page.locator('#modalContent')).toContainText(name);
     await expect(page.locator('#modalContent')).toContainText(/Nehme teil|Teilnahme/);
   });
 
   test('project opens as modular space with tasks and trust', async ({ page }) => {
     await go(page, 'projects');
-    const project = page.locator('#projects-list .project-clickable').first();
-    await expect(project).toBeVisible();
-    await project.click();
+    const name = await openCardByTitle(page.locator('#projects-list .project-clickable').first());
     await expect(page.locator('#modal')).toHaveClass(/show/);
+    await expect(page.locator('#modalContent')).toContainText(name);
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
     await expect(page.locator('[data-otab="info"]')).toBeVisible();
     await page.locator('[data-otab="info"]').click();
@@ -53,9 +49,8 @@ test.describe('desktop core smoke paths', () => {
 
   test('event opens as modular space with tasks and trust', async ({ page }) => {
     await go(page, 'events');
-    const event = page.locator('#events-list .event-clickable').first();
-    await expect(event).toBeVisible();
-    await event.click();
+    const name = await openCardByTitle(page.locator('#events-list .event-clickable').first());
+    await expect(page.locator('#modalContent')).toContainText(name);
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
     await expect(page.locator('[data-otab="info"]')).toBeVisible();
     await page.locator('[data-otab="info"]').click();
