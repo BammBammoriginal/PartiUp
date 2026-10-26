@@ -53,6 +53,16 @@ test('Öffentliches Profil: Nachricht aus Personenansicht zwischen zwei echten K
   await page.locator('#messageBody').fill(outbound);
   await page.locator('#messageComposer button[type="submit"]').click();
   await expect(page.locator('#messageThread')).toContainText(outbound);
+  const outboundBubble = page.locator('.message-bubble').filter({ hasText: outbound });
+  await outboundBubble.locator('.message-reaction-picker summary').click();
+  await outboundBubble.locator('[data-reaction-choice="❤️"]').click();
+  await expect(outboundBubble.locator('.message-reactions > button[data-emoji="❤️"]')).toHaveClass(/active/);
+  await page.reload();
+  await go(page, 'messages');
+  await page.locator(`[data-conversation="${conversation.id}"]`).click();
+  await expect(outboundBubble.locator('.message-reactions > button[data-emoji="❤️"]')).toHaveText(/1/);
+  await outboundBubble.locator('.message-reactions > button[data-emoji="❤️"]').click();
+  await expect(outboundBubble.locator('.message-reactions > button[data-emoji="❤️"]')).toHaveCount(0);
 
   const annaContext = await browser.newContext({
     baseURL: 'http://127.0.0.1:3100',
