@@ -1,5 +1,32 @@
 const { test, expect } = require('@playwright/test');
-const { assertAuthenticated, go, assertNoHorizontalOverflow } = require('../helpers/app');
+const { assertAuthenticated, go, assertNoHorizontalOverflow, openCardByTitle } = require('../helpers/app');
+
+// Secondary meta actions (Melden, Info, Einstellungen) are deliberately small and
+// unobtrusive (owner decision 2026-10-26), but every control must still meet the
+// WCAG 2.2 minimum target size of 24 px. Controls inside a horizontally scrollable
+// strip may sit outside the viewport; the strip itself must not.
+async function assertModalControlsReachable(page) {
+  const problems = await page.locator('#modalContent button').evaluateAll(nodes => {
+    const scrollStrip = n => {
+      for (let el = n.parentElement; el && el.id !== 'modalContent'; el = el.parentElement) {
+        const overflowX = getComputedStyle(el).overflowX;
+        if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return el;
+      }
+      return null;
+    };
+    const out = [];
+    for (const n of nodes.filter(node => node.offsetParent !== null)) {
+      const r = n.getBoundingClientRect();
+      const name = (n.textContent || n.getAttribute('aria-label') || '').trim().slice(0, 40);
+      if (r.height < 24) out.push({ name, issue: 'kleiner als 24 px', height: Math.round(r.height) });
+      const strip = scrollStrip(n);
+      const box = (strip || n).getBoundingClientRect();
+      if (box.left < -2 || box.right > innerWidth + 2) out.push({ name, issue: strip ? 'scrollbare Leiste ragt aus dem Bildschirm' : 'ragt aus dem Bildschirm', right: Math.round(box.right) });
+    }
+    return out;
+  });
+  expect(problems).toEqual([]);
+}
 
 const views = [
   ['discover', '#discoverLanding .discover-preview-card'],
@@ -36,9 +63,7 @@ test.describe('mobile layout regression guards', () => {
 
   test('community space tabs and core creation surfaces stay inside viewport', async ({ page }) => {
     await go(page, 'communities');
-    const first = page.locator('#communities-list .community').first();
-    await expect(first).toBeVisible();
-    await first.click();
+    await openCardByTitle(page.locator('#communities-list .community').first());
     await expect(page.locator('#community-space')).toHaveClass(/active/);
     await assertNoHorizontalOverflow(page);
     for (const tab of ['spaces','events','projects','participation']) {
@@ -59,18 +84,19 @@ test.describe('mobile layout regression guards', () => {
 
   test('event participation workflow stays usable on mobile', async ({ page }) => {
     await go(page, 'events');
-    const first = page.locator('#events-list .event').first();
-    await expect(first).toBeVisible();
-    await first.click();
+    await openCardByTitle(page.locator('#events-list .event').first());
     await expect(page.locator('#modal')).toHaveClass(/show/);
     await assertNoHorizontalOverflow(page);
+    // Participation is the primary job of this dialog: its actions get a comfortable touch target.
+    const actions = page.locator('#modalContent').getByRole('button', { name: /^(Teilnehmen|✓ Teilnahme|⏳ Teilnahme|⏳ Warteliste|✓? ?Vielleicht|Absagen|Bestätigen|Ablehnen)/ });
+    expect(await actions.count()).toBeGreaterThan(0);
+    const smallActions = await actions.evaluateAll(nodes => nodes.filter(n => n.offsetParent !== null).map(n => ({ name: n.textContent.trim(), height: Math.round(n.getBoundingClientRect().height) })).filter(a => a.height < 40));
+    expect(smallActions).toEqual([]);
     const participants = page.locator('[data-otab="participants"]');
     await expect(participants).toBeVisible();
     await participants.click();
     await assertNoHorizontalOverflow(page);
-    const buttons = page.locator('#modalContent button');
-    const bad = await buttons.evaluateAll(nodes => nodes.filter(n => n.offsetParent !== null).map(n => n.getBoundingClientRect()).filter(r => r.height < 40 || r.right > innerWidth + 2));
-    expect(bad).toEqual([]);
+    await assertModalControlsReachable(page);
   });
 
   test('Fediverse Discover cards and tabs stay inside viewport', async ({ page }) => {
