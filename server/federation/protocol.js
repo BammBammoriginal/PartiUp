@@ -180,7 +180,9 @@ function refreshPublicationActivity(db,activity){
   let id;try{id=decodeURIComponent(match[2])}catch{return null}
   const current=match[1]==='posts'?noteForLocalPost(db,id):match[1]==='comments'?noteForLocalComment(db,id):eventForLocalEvent(db,id);
   if(!current)return null;
-  return {...activity,object:current};
+  // Addressing of the activity must match the current object (e.g. public vs. quiet public).
+  if(activity.type==='Announce')return {...activity,object:current,...announceAddressing(activity.actor,current)};
+  return {...activity,object:current,to:current.to||activity.to,cc:current.cc||activity.cc};
 }
 function requireCurrentPublication(db,activity){
   const current=refreshPublicationActivity(db,activity);
@@ -230,20 +232,27 @@ function federationDecisionForPost(db,postId){
   if(mode==='selected'&&state!=='enabled')return {allowed:false,reason:'post_not_selected',mode,state,communityVisibility:p.community_visibility};
   return {allowed:true,reason:state==='enabled'?'post_enabled':'space_public_default',mode,state,communityVisibility:p.community_visibility};
 }
+// Mastodon visibility of an outward publication. Public: addressed to the public collection, shown in feeds and search.
+// Quiet public: addressed to followers with the public collection only in cc, so it stays reachable by profile and link.
+function noteAddressing(audience,author,group){
+  return audience==='quiet'
+    ?{to:[`${author}/followers`],cc:[publicAudience(),`${group}/followers`]}
+    :{to:[publicAudience()],cc:[`${author}/followers`,`${group}/followers`]};
+}
 function noteForLocalPost(db,postId){
   const decision=federationDecisionForPost(db,postId);if(!decision.allowed)return null;
   const p=db.prepare(`SELECT p.* FROM posts p JOIN users u ON u.id=p.author_id WHERE p.id=? AND COALESCE(u.account_status,'active')='active'`).get(postId);
   const author=actorId(p.author_id), id=`${requirePublicBase()}/ap/objects/posts/${encodeURIComponent(p.id)}`;
-  const group=spaceActorId(p.community_id);const obj={'@context':AS,id,type:'Note',attributedTo:author,content:p.body,published:p.created_at,context:id,audience:group,to:[publicAudience()],cc:[`${author}/followers`,`${group}/followers`]};const attachment=attachmentDocumentsForEntity(db,'post',p.id,requirePublicBase());if(attachment.length)obj.attachment=attachment;return obj;
+  const group=spaceActorId(p.community_id);const obj={'@context':AS,id,type:'Note',attributedTo:author,content:p.body,published:p.created_at,context:id,audience:group,...noteAddressing(p.federation_audience,author,group)};const attachment=attachmentDocumentsForEntity(db,'post',p.id,requirePublicBase());if(attachment.length)obj.attachment=attachment;return obj;
 }
 function noteForLocalComment(db,commentId){
-  const c=db.prepare(`SELECT cm.*,p.community_id,p.id post_id FROM comments cm JOIN posts p ON p.id=cm.post_id JOIN users u ON u.id=cm.author_id WHERE cm.id=? AND COALESCE(u.account_status,'active')='active'`).get(commentId);
+  const c=db.prepare(`SELECT cm.*,p.community_id,p.id post_id,p.federation_audience post_audience FROM comments cm JOIN posts p ON p.id=cm.post_id JOIN users u ON u.id=cm.author_id WHERE cm.id=? AND COALESCE(u.account_status,'active')='active'`).get(commentId);
   if(!c||!isUserFederationEnabled(db,c.author_id)||!federationDecisionForPost(db,c.post_id).allowed)return null;
   // A public parent is not consent to publish replies written inside a closed Space.
   if(db.prepare('SELECT visibility FROM communities WHERE id=?').get(c.community_id)?.visibility!=='public')return null;
   const moderation=db.prepare("SELECT state FROM moderation_content_state WHERE target_type='comment' AND target_id=?").get(commentId);if(moderation&&moderation.state!=='active')return null;
   const author=actorId(c.author_id), id=`${requirePublicBase()}/ap/objects/comments/${encodeURIComponent(c.id)}`;
-  const parent=`${requirePublicBase()}/ap/objects/posts/${encodeURIComponent(c.post_id)}`,group=spaceActorId(c.community_id);const obj={'@context':AS,id,type:'Note',attributedTo:author,content:c.body,published:c.created_at,inReplyTo:parent,context:parent,audience:group,to:[publicAudience()],cc:[`${author}/followers`,`${group}/followers`]};const attachment=attachmentDocumentsForEntity(db,'comment',c.id,requirePublicBase());if(attachment.length)obj.attachment=attachment;return obj;
+  const parent=`${requirePublicBase()}/ap/objects/posts/${encodeURIComponent(c.post_id)}`,group=spaceActorId(c.community_id);const obj={'@context':AS,id,type:'Note',attributedTo:author,content:c.body,published:c.created_at,inReplyTo:parent,context:parent,audience:group,...noteAddressing(c.post_audience,author,group)};const attachment=attachmentDocumentsForEntity(db,'comment',c.id,requirePublicBase());if(attachment.length)obj.attachment=attachment;return obj;
 }
 function isoDateTimeWithZone(value){
   const raw=String(value||'').trim();
@@ -326,7 +335,9 @@ async function flushDeliveryQueue(db,limit=20){
 }
 
 
-function announceActivityForGroup(db,spaceId,note){const group=spaceActorId(spaceId);return {'@context':AS,id:`${group}/activities/${crypto.randomUUID()}`,type:'Announce',actor:group,published:new Date().toISOString(),object:note,audience:group,to:[publicAudience()],cc:[`${group}/followers`]};}
+// A group boost never widens the boosted note: quiet public stays quiet public.
+function announceAddressing(group,note){return (note?.to||[]).includes(publicAudience())?{to:[publicAudience()],cc:[`${group}/followers`]}:{to:[`${group}/followers`],cc:[publicAudience()]}}
+function announceActivityForGroup(db,spaceId,note){const group=spaceActorId(spaceId);return {'@context':AS,id:`${group}/activities/${crypto.randomUUID()}`,type:'Announce',actor:group,published:new Date().toISOString(),object:note,audience:group,...announceAddressing(group,note)};}
 async function deliverSpaceActivity(db,spaceId,inbox,activity){activity=requireCurrentPublication(db,activity);const policy=evaluatePeer(db,{uri:inbox,spaceId,direction:'outbound',action:'deliver'});if(!policy.allowed)throw new Error(`Federation policy blocked delivery: ${policy.reason}`);await resolvePublicHttps(inbox);const key=ensureSpaceActorKey(db,spaceId),body=JSON.stringify(activity),id=spaceActorId(spaceId);const headers=signLegacyRequest({method:'POST',url:inbox,body,keyId:`${id}#main-key`,privateKeyPem:key.private_key_pem});const r=await safeHttpsRequest(inbox,{method:'POST',headers,body});if(r.status<200||r.status>=300)throw new Error(`Space delivery failed (${r.status})`);recordPeerObservation(db,{uri:inbox,spaceId,direction:'outbound',activityType:activity?.type||''});return r.status;}
 function queueActivityForSpaceFollowers(db,spaceId,activity){const rows=db.prepare(`SELECT remote_actor_uri,remote_inbox_uri FROM federation_space_followers WHERE local_space_id=? AND remote_inbox_uri<>''`).all(spaceId).filter(row=>evaluatePeer(db,{uri:row.remote_actor_uri||row.remote_inbox_uri,spaceId,direction:'outbound',action:'deliver'}).allowed);const ins=db.prepare(`INSERT INTO federation_space_delivery_queue(id,local_space_id,remote_actor_uri,inbox_uri,activity_uri,payload_json,status,next_attempt_at) VALUES (?,?,?,?,?,?,'pending',CURRENT_TIMESTAMP)`);const tx=db.transaction(()=>{db.prepare(`INSERT OR IGNORE INTO federation_activities(id,activity_uri,direction,activity_type,actor_uri,local_user_id,payload_json,status) VALUES (?,?,?,?,?,?,?,'queued')`).run('act-'+crypto.randomUUID(),String(activity.id||''),'out',String(activity.type||''),String(activity.actor||spaceActorId(spaceId)),null,JSON.stringify(activity));for(const row of rows)ins.run('space-delivery-'+crypto.randomUUID(),spaceId,row.remote_actor_uri,row.remote_inbox_uri,String(activity.id||''),JSON.stringify(activity))});tx();setImmediate(()=>flushSpaceDeliveryQueue(db).catch(e=>console.warn('Space federation delivery queue:',e.message)));return rows.length;}
 async function flushSpaceDeliveryQueue(db,limit=20){const rows=db.prepare(`SELECT * FROM federation_space_delivery_queue WHERE status IN ('pending','retry') AND datetime(next_attempt_at)<=datetime('now') ORDER BY created_at LIMIT ?`).all(limit);for(const row of rows){try{const activity=JSON.parse(row.payload_json);await deliverSpaceActivity(db,row.local_space_id,row.inbox_uri,activity);db.prepare(`UPDATE federation_space_delivery_queue SET status='sent',last_error='',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(row.id)}catch(e){if(e?.code==='FEDERATION_PUBLICATION_REVOKED')db.prepare("UPDATE federation_space_delivery_queue SET payload_json='{}' WHERE id=?").run(row.id);const attempts=Number(row.attempts||0)+1,status=e?.code==='FEDERATION_PUBLICATION_REVOKED'||attempts>=5?'failed':'retry',delay=Math.min(3600,30*Math.pow(2,Math.min(attempts,6)));db.prepare(`UPDATE federation_space_delivery_queue SET status=?,last_error=?,attempts=?,next_attempt_at=datetime('now', ?),updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(status,String(e.message||'delivery failed').slice(0,500),attempts,`+${delay} seconds`,row.id)}}return rows.length;}

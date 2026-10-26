@@ -641,6 +641,8 @@ ensureColumn('communities','min_trust_level','INTEGER NOT NULL DEFAULT 1');
 ensureColumn('communities','federation_mode',"TEXT NOT NULL DEFAULT 'off'");
 ensureColumn('communities','federation_inbound_mode',"TEXT NOT NULL DEFAULT 'off'");
 ensureColumn('posts','federation_state',"TEXT NOT NULL DEFAULT 'inherit'");
+// Mastodon-compatible audience of an outward publication: public (feeds, search) or quiet (profile and link only).
+ensureColumn('posts','federation_audience',"TEXT NOT NULL DEFAULT 'public' CHECK(federation_audience IN ('public','quiet'))");
 ensureColumn('communities','setup_completed','INTEGER NOT NULL DEFAULT 1');
 ensureColumn('communities','template_key',"TEXT DEFAULT ''");
 ensureColumn('events','visibility',"TEXT NOT NULL DEFAULT 'public'");

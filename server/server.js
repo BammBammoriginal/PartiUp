@@ -782,12 +782,18 @@ function postPublicationError(userId,communityId,authorId){
   if(space?.visibility!=='public'&&!hasPermission(userId,'community',communityId,'content.publish_external'))return 'Beiträge aus diesem geschlossenen Space darf nur nach außen veröffentlichen, wer dafür im Space berechtigt ist.';
   return null;
 }
+// Mastodon-compatible outward visibility. Without a choice, closed Spaces default to the more cautious quiet public.
+function postFederationAudience(requested,communityId){
+  if(['public','quiet'].includes(requested))return requested;
+  return db.prepare('SELECT visibility FROM communities WHERE id=?').get(communityId)?.visibility==='public'?'public':'quiet';
+}
 app.post('/api/communities/:id/posts',requireUser,(req,res)=>{
   if(!mustBeMember(req.userId,req.params.id))return res.status(403).json({error:'Keine Berechtigung zum Schreiben.'});if(!hasPermission(req.userId,'community',req.params.id,'content.create'))return res.status(403).json({error:'Keine Berechtigung zum Schreiben.'});
   const body=text(req.body?.body,5000);if(!body)return res.status(400).json({error:'Der Beitrag ist leer.'});
   const federationState=['inherit','enabled','disabled'].includes(req.body?.federation_state)?req.body.federation_state:'inherit';
   if(federationState==='enabled'){const publicationError=postPublicationError(req.userId,req.params.id,req.userId);if(publicationError)return res.status(403).json({error:publicationError});}
-  const postId='post-'+crypto.randomUUID();db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state) VALUES (?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState);let federated=0,groupFederated=0;try{if(baseUrl()){const note=noteForLocalPost(db,postId);if(note){federated=queueActivityForFollowers(db,req.userId,createActivityForNote(note));groupFederated=queueActivityForSpaceFollowers(db,req.params.id,announceActivityForGroup(db,req.params.id,note));}}}catch(e){console.warn('Post federation enqueue:',e.message)}res.status(201).json({postId,federatedDeliveries:federated,groupFederatedDeliveries:groupFederated,federation:federationDecisionForPost(db,postId),community:communityDetail(req.params.id,req.userId)});
+  const audience=postFederationAudience(req.body?.federation_audience,req.params.id);
+  const postId='post-'+crypto.randomUUID();db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state,federation_audience) VALUES (?,?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState,audience);let federated=0,groupFederated=0;try{if(baseUrl()){const note=noteForLocalPost(db,postId);if(note){federated=queueActivityForFollowers(db,req.userId,createActivityForNote(note));groupFederated=queueActivityForSpaceFollowers(db,req.params.id,announceActivityForGroup(db,req.params.id,note));}}}catch(e){console.warn('Post federation enqueue:',e.message)}res.status(201).json({postId,federatedDeliveries:federated,groupFederatedDeliveries:groupFederated,federation:federationDecisionForPost(db,postId),community:communityDetail(req.params.id,req.userId)});
 });
 
 app.post('/api/communities/:id/posts-with-media',requireUser,upload.single('image'),async(req,res)=>{
@@ -796,10 +802,11 @@ app.post('/api/communities/:id/posts-with-media',requireUser,upload.single('imag
   if(!req.file)return res.status(400).json({error:'Bitte ein unterstütztes Bild auswählen.'});
   const federationState=['inherit','enabled','disabled'].includes(req.body?.federation_state)?req.body.federation_state:'inherit';
   if(federationState==='enabled'){const publicationError=postPublicationError(req.userId,req.params.id,req.userId);if(publicationError)return res.status(403).json({error:publicationError});}
+  const audience=postFederationAudience(req.body?.federation_audience,req.params.id);
   const postId='post-'+crypto.randomUUID();let media=null;
   try{
     media=await persistImage(req.file,req.userId);
-    db.transaction(()=>{db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state) VALUES (?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState);db.prepare('INSERT INTO media_links(media_id,entity_type,entity_id,role) VALUES (?,?,?,?)').run(media.id,'post',postId,'attachment');})();
+    db.transaction(()=>{db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state,federation_audience) VALUES (?,?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState,audience);db.prepare('INSERT INTO media_links(media_id,entity_type,entity_id,role) VALUES (?,?,?,?)').run(media.id,'post',postId,'attachment');})();
   }catch(e){
     if(media?.id){try{db.prepare('DELETE FROM media WHERE id=?').run(media.id)}catch{}for(const u of Object.values(media.variants||{})){try{fs.unlinkSync(path.join(uploadDir,path.basename(u)))}catch{}}}
     console.error('Post media create:',e);return res.status(400).json({error:'Beitrag mit Bild konnte nicht erstellt werden.'});
@@ -814,7 +821,10 @@ app.put('/api/posts/:id/federation',requireUser,(req,res)=>{
   const state=['inherit','enabled','disabled'].includes(req.body?.state)?req.body.state:null;if(!state)return res.status(400).json({error:'Ungültige Federation-Einstellung.'});
   if(state==='enabled'){const publicationError=postPublicationError(req.userId,p.community_id,p.author_id);if(publicationError)return res.status(403).json({error:publicationError});}
   const before=federationDecisionForPost(db,p.id);let oldNote=null;try{if(before.allowed&&baseUrl())oldNote=noteForLocalPost(db,p.id)}catch{}
-  db.prepare('UPDATE posts SET federation_state=? WHERE id=?').run(state,p.id);const after=federationDecisionForPost(db,p.id);let federated=0;
+  const audience=['public','quiet'].includes(req.body?.audience)?req.body.audience:p.federation_audience;
+  // Like Mastodon, the visibility of a published post is fixed; withdraw and publish again to change it.
+  if(audience!==p.federation_audience&&before.allowed)return res.status(409).json({error:'Die Sichtbarkeit lässt sich nach der Veröffentlichung nicht mehr ändern. Beitrag zuerst zurückziehen und dann neu veröffentlichen.'});
+  db.prepare('UPDATE posts SET federation_state=?,federation_audience=? WHERE id=?').run(state,audience,p.id);const after=federationDecisionForPost(db,p.id);let federated=0;
   try{if(baseUrl()&&!before.allowed&&after.allowed){const note=noteForLocalPost(db,p.id);if(note)federated=queueActivityForFollowers(db,p.author_id,createActivityForNote(note));}else if(baseUrl()&&before.allowed&&!after.allowed&&oldNote){federated=queueActivityForFollowers(db,p.author_id,deleteActivityForObject(p.author_id,oldNote.id));}}catch(e){console.warn('Post federation policy transition:',e.message)}
   res.json({ok:true,state,federation:after,federatedDeliveries:federated});
 });
