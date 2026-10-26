@@ -10,6 +10,7 @@ Diese Datei ist die gemeinsame Regelgrundlage für ChatGPT, Claude Code und mens
 - **Entscheidungen** werden verbindlich, wenn die projektverantwortliche Person sie ausdrücklich trifft **und** sie im Projektregister (`docs/PROJECT-REGISTER.md`) mit Datum stehen. Entscheidungen, die nur in früheren Chats vorkommen, gelten als „zu bestätigen“.
 - Aussagen werden nach Evidenz gekennzeichnet: **V** verbindlich beschlossen · **M** auf `main` vorhanden · **T** durch konkreten Testlauf belegt (gilt nur für genau diesen Commit) · **PR** nur auf offenem Branch · **B** Idee/Brainstorming, nicht beschlossen · **O** offen.
 - Ideen aus dem Brainstorming sind unverbindlich, bis sie ausdrücklich übernommen werden. Einordnen ändert weder Code noch Roadmap.
+- **Neue oder verkürzte Regeln heben bestehende Regeln nicht auf.** Ausnahme nur, wenn die Änderung aus Entwicklungen im Fachgebiet (Standards, Sicherheitsvorfälle, Security-Releases) folgt oder sicherheitsrelevant ist **und** ausdrücklich angewiesen wurde. Kollidieren zwei Regeln, wird die restriktivere nie eigenmächtig abgeschwächt; der Konflikt wird mit Lösungsvorschlag im Projektregister benannt und entschieden.
 
 ## 1. Produktziel und Zielgruppe (vorrangig)
 
@@ -56,6 +57,16 @@ PartiUp ist ein stabiler, bewusst schlanker Kern, der über Erweiterungen wächs
 - Erweiterungen haben ein Manifest (Capabilities, Daten- und Netzwerkzugriff, UI-Flächen); Aktivieren wird auditiert; für Nutzer erscheinen sie als normale Funktion und sind unter `ⓘ Info` offengelegt. Externe ausführbare Plugins bleiben gesperrt, bis Herkunftsprüfung, Isolation, Capability-Durchsetzung und ein Update-/Rollback-Weg existieren.
 - „Integriert“ heißt erst nach einem Ende-zu-Ende-Test gegen eine echte Gegenstelle; ein Katalogeintrag ist kein Nachweis. Aktueller Umsetzungsstand: Projektregister.
 
+### 3a. Mastodon-/ActivityPub-Kompatibilität (Entscheidung vom 2026-10-26)
+
+- **Etablierte Semantik vor Eigenlogik.** Wo ActivityPub oder Mastodon eine geeignete Semantik bereitstellen, wird keine eigene erfunden. Bestehende ActivityPub-Felder bekommen keine PartiUp-spezifische Bedeutung. Jedes föderierte Objekt muss von Mastodon semantisch korrekt interpretiert und dargestellt werden können.
+- **Beitragssichtbarkeit nach Mastodon:** Public (sichtbar, auffindbar, in öffentlichen Feeds, föderierbar) · Quiet public (per Profil/Permalink sichtbar, nicht in Feeds, Explore oder Suche) · Followers (nur Follower und Erwähnte) · Private mention (nur ausdrücklich Adressierte). Vorhandene PartiUp-Stufen werden darauf abgebildet; keine parallelen Sichtbarkeitsklassen.
+- **Spaces sind eine zusätzliche, restriktivere Policy-Ebene oberhalb** von ActivityPub/Mastodon, kein Ersatz. Der Space bestimmt, wer grundsätzlich sehen und handeln darf; die Beitragsebene bestimmt, wie ein Inhalt innerhalb dieser Grenzen sichtbar ist und föderiert wird.
+- **Prüfkette:** Space-Policy → Rollenberechtigung → Beitragssichtbarkeit → ActivityPub-Adressierung (`to`/`cc`) → tatsächliche Zustellung. Keine nachgeordnete, weniger restriktive Einstellung darf eine übergeordnete aushebeln; keine implizite Eskalation von Sichtbarkeit.
+- Geschlossene Spaces bleiben standardmäßig geschlossen. Ihre Inhalte werden nie allein durch eine Beitragseinstellung öffentlich oder föderiert; dafür braucht es eine ausdrücklich erlaubende Space-Policy und eine berechtigte Rolle. Unterräume erben nur, wo das ausdrücklich vorgesehen und nachvollziehbar ist.
+- Sehen, Finden und Verteilen bleiben getrennte Fragen. In der Oberfläche heißen sie: „Wer kann diesen Inhalt sehen?“, „Wo kann er gefunden werden?“, „Darf er außerhalb dieses Spaces bzw. ins Fediverse?“.
+- Security-, Privacy- und Kompatibilitätsarbeit ist keine Funktionsausweitung: keine neuen Social-Funktionen, kein größerer MVP, kein Mastodon-Nachbau, die Space-Struktur bleibt. Neue Funktionen nur, wenn sie zwingend nötig sind, um eine Lücke, Inkompatibilität oder einen Standardverstoß zu beheben.
+
 ## 4. Sicherheit, Privacy und Lieferkette (Release-Blocker)
 
 Quellen: `PERMISSIONS-v0.8.9.md`, `PRIVACY-DATA-LIFECYCLE-P0.5.md`, `ACTIVITYPUB-USER-PRIVACY-P0.5.md`, `MODERATION-SAFETY-v0.9.md`, sowie mit PR #20 `SECURITY-UPDATE-AND-RECOVERY.md` und `RETROFIT-REVIEW-2026-10-20.md`.
@@ -69,6 +80,29 @@ Quellen: `PERMISSIONS-v0.8.9.md`, `PRIVACY-DATA-LIFECYCLE-P0.5.md`, `ACTIVITYPUB
 - Bestehende Bibliotheken und Standards nutzen; keine eigene Identitäts-, Rollen-, Kryptografie- oder Update-Vertrauenslogik erfinden.
 - Abhängigkeiten und GitHub Actions exakt pinnen; Lockfile führend. Installation mit `npm ci --ignore-scripts`, danach Registry-Signaturen und Audits prüfen (ab PR #20). `ignore-scripts` nicht global aufheben, nie `npm audit fix --force`. Updates nur nach Prüfung von Herkunft und Diff und mit menschlicher Freigabe; ein kompromittierter offizieller Kanal ist Teil des Bedrohungsmodells.
 - Keine Tokens, Kennwörter, personenbezogenen Daten oder vertraulichen Logs committen.
+
+**Laufzeit und Abhängigkeiten (ergänzt 2026-10-26)**
+- Node.js nur in einer unterstützten LTS-Linie und auf dem jeweils abgesicherten Patchstand, exakt festgelegt (CI, `engines`, `.nvmrc`); kein offenes „24“ oder `latest`. Security-Releases werden zeitnah übernommen; Major-Wechsel nie blind. Alte und neue Version samt Grund werden dokumentiert, danach laufen alle Tests.
+- Für sicherheitsrelevante Deployments keine ungeprüften `latest`-Tags; Signaturen, Herkunft (Provenance) und Hashes prüfen, reproduzierbare Builds soweit praktikabel, kompromittierte Releases müssen sich schnell sperren lassen. Die Anforderung signierter Pakete bleibt verbindlich.
+
+**Secrets (ergänzt 2026-10-26, Lehre aus dem LiteLLM-Vorfall)**
+- Keine Zugangsdaten im Repository, in Logs, in KI-Prompts oder KI-Ausgaben. Bei möglicher Offenlegung nicht nur löschen, sondern **sofort widerrufen bzw. rotieren**.
+- Secrets nur mit minimalem Scope; persönliche Owner-Tokens nicht für Automatisierung.
+
+**CI/CD und Release**
+- Build und Release getrennt; Veröffentlichungsrechte minimal; Release-Workflows akzeptieren keine fremden Quell-Repositories und sind besonders geschützt.
+- Branch-Schutz und vergleichbare Schutzmechanismen dürfen nicht durch normale Entwickler- oder Agentenkonten deaktivierbar sein. Kritische Releases mit getrennten Identitäten bzw. Freigabeschritten.
+
+**Least Privilege rückwirkend für alles**
+- Nutzerrollen, Space-Admins, globale Admins, Plugins, Integrationen, ActivityPub-Komponenten, Datenbankzugriffe, Hintergrundprozesse, CI/CD, KI-Agenten, API-Tokens und Service-Accounts erhalten nur die Rechte ihrer konkreten Aufgabe. Die Kompromittierung eines Plugins oder Integrationsdienstes darf nicht automatisch Zugriff auf die gesamte Plattform geben.
+
+**Zugriffsgrenzen und Sitzungen**
+- Für jeden Endpunkt ist festgelegt und getestet, ob er öffentlich, nur angemeldet, nur für Space-Mitglieder, nur für bestimmte Rollen oder nur administrativ ist; geprüft werden auch direkte API-Aufrufe, manipulierte URLs, Chat, Dateien, Suche, Benachrichtigungen, Exporte, ActivityPub-Endpunkte und Hintergrund-Requests nach Logout. Ein ausgeblendeter Button ist keine Zugriffskontrolle.
+- Nach Logout: Sitzung serverseitig ungültig, geschützte API-Aufrufe scheitern, Chat-Verbindungen getrennt, geschützte Inhalte nicht mehr veränderbar, alte UI-Zustände und Backdrops verschwinden, Browser-Zurück stellt keine Sitzung wieder her. Nutzerwechsel wird ausdrücklich auf Session-Leakage getestet.
+
+**KI-gestützte Entwicklung**
+- KI-Agenten gelten als nicht vollständig vertrauenswürdige Werkzeuge: Datei- und Netzwerkzugriff so eng wie praktikabel, keine Produktions-Secrets, keine dauerhaften Owner-Tokens, sensible Ausgaben nicht dauerhaft loggen.
+- Codeänderung, Test und Produktionsfreigabe sind getrennt. Ein Agent darf Schutzmechanismen nicht deaktivieren und nicht zugleich Code ändern, Sicherheitskontrollen abschalten und einen Release veröffentlichen.
 
 ## 5. Arbeitsweise
 
@@ -91,6 +125,9 @@ Quellen: `QA-RELEASE-PROCESS.md`, `QA-FAST-FULL.md`, `GOLD-STANDARD-BROWSER-QA-P
   - Browser-Tests bedienen wie ein Mensch: Rolle und zugänglicher Name, sichtbarer Titel oder ausdrücklich als Testvertrag gedachte `data-*`-Attribute; nicht Kartenmitte, CSS-Klassen, DOM-Position oder starre Tabnamen. Karten öffnen über `openCardByTitle` (`tests/helpers/app.js`, ab PR #20).
   - Ist ein roter Test an die Umsetzung gekoppelt, wird er auf Verhalten umgeschrieben statt den neuen Wortlaut nachzutragen. Blockiert ein Zeichenketten-Preflight eine verhaltensgleiche Änderung, wird diese Prüfung im selben PR durch eine Verhaltensprüfung ersetzt.
   - Flexibler heißt nie schwächer: Sicherheits-, Privacy- und Rechteaussagen bleiben mindestens gleich streng. Ein gelockerter Test braucht eine Gegenprobe, die zeigt, dass er noch anschlägt.
+- **Security-Regressionstests:** Jede Security-Korrektur bekommt nach Möglichkeit einen Regressionstest, insbesondere für Authentifizierung, Rollen, Sichtbarkeit, Space-Vererbung, Föderation, Blockierung, Nutzerwechsel, Logout, CSRF, Stored XSS, Rate-Limits, Privacy-Export/-Löschung, Plugin-Berechtigungen, ActivityPub-Auslieferung und Secret-Exposure. Getestet wird nicht nur die Oberfläche, sondern auch API, Datenbankzustand und tatsächliche ActivityPub-Auslieferung.
+- **Privacy-Boundary-Matrix** (mindestens): öffentlicher Space mit öffentlichem, Quiet-public- und eingeschränktem Beitrag; geschlossener Space mit internem Beitrag, versuchter Veröffentlichung ohne Berechtigung und ausdrücklich erlaubter Veröffentlichung; geschlossener Unterraum in öffentlichem Space; Rollenwechsel nach Veröffentlichung; Mitglied verlässt Space; blockierte Person; anonymer Zugriff; direkter Permalink; Zugriff über ActivityPub bzw. fremde Instanz; Mastodon-Nutzer empfängt öffentlichen Beitrag; Mastodon-Nutzer erhält keinen nicht für ihn bestimmten Inhalt.
+- Vorgehen pro Prüfbereich: Ist-Zustand feststellen → Abweichung benennen → Standard/Konvention bestimmen → minimale Änderung → umsetzen → Tests ergänzen → Regressionen ausführen → Nebenwirkungen prüfen → dokumentieren. Keine bestehende Privacy-, Security- oder Föderationsregel stillschweigend entfernen.
 - Desktop- und Mobile-Annahmen nie in einem Test mischen (Desktop = Seitenleiste, Mobile = untere Navigation/Drawer). Visual-Baselines nur nach bewusster Sichtprüfung aktualisieren. Rechte-/Privacy-Änderungen brauchen einen serverseitigen Negativtest; neue Ansichten einen Smoke- oder Layout-Test.
 - Gates vor einem Merge: Lieferkette und Audits, `preflight`, `qa:security`, `qa:smoke`, `qa:layout`, `qa:accessibility`, `qa:gold` auf dem exakten PR-Head. Werden mehrere PRs nacheinander gemergt, laufen die Gates danach einmal auf dem neuen `main`.
 - Nicht Ausgeführtes ausdrücklich als **nicht ausgeführt** kennzeichnen. Ohne echten Chromium-Lauf auf Desktop und Mobile keine Freigabe. Ein grüner Prototyp-Goldlauf ist keine Produktions-, DSGVO- oder WCAG-Freigabe.
