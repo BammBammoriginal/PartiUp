@@ -199,6 +199,16 @@ function deleteAccountData(db,userId,{privateUploadDir,publicUploadDir}={}){
     db.prepare('DELETE FROM federation_activities WHERE local_user_id=?').run(userId);
     db.prepare('DELETE FROM federation_actor_keys WHERE user_id=?').run(userId);
     db.prepare('DELETE FROM federation_handles WHERE user_id=?').run(userId);
+    // Group delivery/audit rows do not carry local_user_id. Purge nested subject
+    // publications too, so an anonymized account leaves no queued original body.
+    const {referencesSubject}=require('./core/federation-subject');
+    for(const table of ['federation_space_delivery_queue','federation_activities']){
+      for(const item of rows(db,`SELECT id,payload_json FROM ${table}`)){
+        let payload;try{payload=JSON.parse(item.payload_json)}catch{continue}
+        if(referencesSubject(payload,userId,authoredPosts,authoredComments))db.prepare(`DELETE FROM ${table} WHERE id=?`).run(item.id);
+      }
+    }
+
     db.prepare("DELETE FROM federation_entities WHERE entity_type='user' AND entity_id=?").run(userId);
     if(authoredPosts.length){const q=authoredPosts.map(()=>'?').join(',');db.prepare(`DELETE FROM federation_entities WHERE entity_type='post' AND entity_id IN (${q})`).run(...authoredPosts)}
     if(authoredComments.length){const q=authoredComments.map(()=>'?').join(',');db.prepare(`DELETE FROM federation_entities WHERE entity_type='comment' AND entity_id IN (${q})`).run(...authoredComments)}

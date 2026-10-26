@@ -1,3 +1,14 @@
+# Aktuelle Ergänzung vom 20.10.2026
+
+Die rückwirkenden Regeln in `AGENTS.md` und `RETROFIT-REVIEW-2026-10-20.md`
+gelten für den gesamten Bestand. Ein Prototyp-Goldstand braucht den erfolgreichen
+Lauf auf dem exakten PR-Head: Registry-Signaturen, Produktions-/Gesamtaudit,
+Preflight, Security/Privacy/Retrofit einschließlich Key-/Recovery-Tests, 43
+Desktop-/Mobil-Goldfälle sowie Smoke-, Layout- und DOM-/Accessibility-Gates.
+Ein signierter externer Release hat zusätzliche Voraussetzungen aus
+`SECURITY-UPDATE-AND-RECOVERY.md`. Bestehende Betreiber- oder Live-Föderations-
+Lücken werden durch einen grünen Browserlauf nicht aufgehoben.
+
 # PartiUp QA- und Release-Prozess
 
 Stand: 22.09.2026. Ältere Befehlsbeispiele weiter unten beschreiben

@@ -3,3 +3,12 @@ node_modules/
 playwright-report/
 test-results/
 tests/.auth/
+
+/uploads/
+/backups/
+/release-evidence/
+/dist/
+.env
+.env.*
+*.pem
+*.key

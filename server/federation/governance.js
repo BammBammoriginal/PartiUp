@@ -15,8 +15,8 @@ function csvHosts(name){
 }
 
 function globalMode(){
-  const raw=String(process.env.PARTIUP_FEDERATION_GOVERNANCE_MODE||'open').trim().toLowerCase();
-  return ['open','reviewed','allowlist'].includes(raw)?raw:'open';
+  const raw=String(process.env.PARTIUP_FEDERATION_GOVERNANCE_MODE||'reviewed').trim().toLowerCase();
+  return ['open','reviewed','allowlist'].includes(raw)?raw:'reviewed';
 }
 
 function installGovernanceSchema(db){

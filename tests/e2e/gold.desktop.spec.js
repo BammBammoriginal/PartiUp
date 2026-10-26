@@ -19,6 +19,8 @@ const {
   assertChatMediaLayout,
   openAndCloseChatMediaViewer
 } = require('../helpers/gold');
+const { openCardByTitle } = require('../helpers/app');
+const { startIsolatedServer } = require('../helpers/isolated-server');
 
 test.setTimeout(30_000);
 
@@ -192,12 +194,14 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#topic-grid .topic-detail')).toBeVisible();
 
     await go(page, 'communities');
-    await page.locator('#communities-list .community').first().click();
+    const communityName = await openCardByTitle(page.locator('#communities-list .community').first());
     await expect(page.locator('#community-space')).toHaveClass(/active/);
+    await expect(page.locator('#community-space')).toContainText(communityName);
 
     await go(page, 'people');
-    await page.locator('#people-list .person-card').first().click();
+    const personName = await openCardByTitle(page.locator('#people-list .person-card').first());
     await expect(page.locator('#person-space')).toHaveClass(/active/);
+    await expect(page.locator('#person-space')).toContainText(personName);
   });
 
   test('Unterhaltung starten, Nachricht senden und nach Reload wiederfinden', async ({ page }) => {
@@ -361,9 +365,7 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await page.locator('#closeModal').click();
 
     await go(page, 'people');
-    const annaCard = page.locator('#people-list .person-card[data-user="u-anna"]');
-    await expect(annaCard).toBeVisible();
-    await annaCard.click();
+    await openCardByTitle(page.locator('#people-list .person-card[data-user="u-anna"]'));
     await page.locator('[data-friend-request="u-anna"]').click();
     await expect(page.locator('.friendship-state')).toContainText('Anfrage gesendet');
 
@@ -397,6 +399,68 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#notificationCount')).toBeHidden();
     await page.locator('#closeModal').click();
     await expect(page.locator('.friendship-state')).toContainText('Befreundet');
+  });
+
+  test('Geschlossener Benachrichtigungsdialog bleibt zu, wenn die Liste verspätet nachlädt', async ({ browser }) => {
+    // Two extra visible logins: use an isolated server so the shared login rate limit stays untouched.
+    const isolated = await startIsolatedServer('notification-race');
+    const contexts = [];
+    const visibleLogin = async (email, name) => {
+      const context = await browser.newContext({ baseURL: isolated.baseURL, viewport: { width: 1440, height: 1000 }, storageState: { cookies: [], origins: [] } });
+      contexts.push(context);
+      const person = await context.newPage();
+      await waitForApp(person);
+      await openIdentity(person);
+      await person.locator('#loginEmail').fill(email);
+      await person.locator('#loginPassword').fill('demo123');
+      await person.locator('#login').click();
+      await expect(person.locator('#userName')).toHaveText(name);
+      return person;
+    };
+    try {
+      // Max writes to Anna so that Anna has an unread notification.
+      const max = await visibleLogin('max@bottomupparti.local', 'Max');
+      await go(max, 'messages');
+      await max.locator('#createConversation').click();
+      await max.locator('#conversationPeople').selectOption('u-anna');
+      await max.locator('#saveConversation').click();
+      await expect(max.locator('#messageComposer')).toBeVisible();
+      const body = uniqueName('Benachrichtigung für Anna');
+      await max.locator('#messageBody').fill(body);
+      await max.locator('#messageComposer button[type="submit"]').click();
+      await expect(max.locator('#messageThread')).toContainText(body);
+
+      const anna = await visibleLogin('anna@bottomupparti.local', 'Anna');
+      const guard = captureRuntimeFailures(anna);
+      await anna.locator('#notificationButton').click();
+      await expect(anna.locator('#readAll')).toBeVisible();
+
+      // Hold the list reload that follows "Alle als gelesen" until the person has closed the dialog.
+      let releaseList;
+      const listHeld = new Promise(resolve => {
+        anna.route(url => url.pathname === '/api/notifications', async route => {
+          resolve();
+          await new Promise(release => { releaseList = release; });
+          await route.continue();
+        }, { times: 1 });
+      });
+      await anna.locator('#readAll').click();
+      await listHeld;
+      await anna.locator('#closeModal').click();
+      await expect(anna.locator('#modal')).not.toHaveClass(/show/);
+
+      const listLoaded = anna.waitForResponse(response => new URL(response.url()).pathname === '/api/notifications');
+      releaseList();
+      await (await listLoaded).finished();
+      // Let the page finish handling the delayed response before checking the dialog state.
+      await anna.evaluate(() => new Promise(resolve => setTimeout(() => setTimeout(resolve, 0), 0)));
+      await expect(anna.locator('#modal')).not.toHaveClass(/show/);
+      await expect(anna.locator('#notificationCount')).toBeHidden();
+      guard.assertClean();
+    } finally {
+      try { for (const context of contexts) await context.close(); }
+      finally { await isolated.stop(); }
+    }
   });
 
   test('Kontolöschung zeigt Folgen, erlaubt Abbruch und verlangt das aktuelle Passwort', async ({ browser }) => {

@@ -61,6 +61,9 @@ function assert(ok,msg){if(!ok)throw new Error(msg);console.log('✓ '+msg)}
   })();
   fs.writeFileSync(path.join(privDir,privFile),'data');for(const f of pubFiles)fs.writeFileSync(path.join(pubDir,f),'data');
 
+  const groupPayload=JSON.stringify({type:'Announce',actor:`https://test.example/ap/actors/spaces/${community}`,object:{id:`https://test.example/ap/objects/posts/post-${stamp}`,attributedTo:'https://test.example/ap/actors/users/u-max',content:'ORIGINAL_PERSONAL_GROUP_PAYLOAD'}});
+  sql.prepare("INSERT INTO federation_space_delivery_queue(id,local_space_id,remote_actor_uri,inbox_uri,payload_json) VALUES (?,?,?,?,?)").run(`group-delivery-${stamp}`,community,'https://remote.example/actor','https://remote.example/inbox',groupPayload);
+  sql.prepare("INSERT INTO federation_activities(id,direction,activity_type,actor_uri,payload_json) VALUES (?,'out','Announce',?,?)").run(`group-activity-${stamp}`,`https://test.example/ap/actors/spaces/${community}`,groupPayload);
   const exp=await req(j,'GET','/api/privacy/export');assert(exp.status===200,'privacy export succeeds');
   assert(exp.data.conversations.messages.some(x=>x.id===`msg-max-${stamp}`),'export includes authored messages');
   assert(exp.data.conversations.private_media.some(x=>x.id===`pm-${stamp}`),'export includes private media metadata');
@@ -93,6 +96,7 @@ function assert(ok,msg){if(!ok)throw new Error(msg);console.log('✓ '+msg)}
   assert(sql.prepare('SELECT reporter_id FROM content_reports WHERE id=?').get(`report-${stamp}`).reporter_id==='u-max','moderation report retained only against tombstone identity');
   assert(sql.prepare('SELECT actor_id FROM moderation_actions WHERE id=?').get(`mod-${stamp}`).actor_id==='u-max','moderation action retained for safety/audit integrity');
   assert(sql.prepare('SELECT COUNT(*) n FROM privacy_file_deletion_queue WHERE deleted_at IS NULL').get().n===0,'file deletion queue drained successfully');
+  assert(!sql.prepare('SELECT 1 FROM federation_space_delivery_queue WHERE id=?').get(`group-delivery-${stamp}`)&&!sql.prepare('SELECT 1 FROM federation_activities WHERE id=?').get(`group-activity-${stamp}`),'nested Group publication payloads are purged together with their deleted subject');
   const audit=residualPersonalDataAudit(sql,'u-max',{privateUploadDir:privDir,publicUploadDir:pubDir});assert(audit.pass,'residual personal-data audit passes after deletion');
   console.log('\nPrivacy data lifecycle integration: PASS');
 }catch(e){console.error('\nPrivacy data lifecycle integration FAILED\n'+(e.stack||e)+'\n\nServer output:\n'+serverOut.slice(-6000));process.exitCode=1}finally{try{sql?.close()}catch{}if(server.exitCode===null){server.kill('SIGTERM');await new Promise(r=>setTimeout(r,300))}for(const x of ['','-wal','-shm'])try{fs.rmSync(dbPath+x,{force:true})}catch{}try{fs.rmSync(path.join(privDir,privFile),{force:true})}catch{}for(const f of pubFiles)try{fs.rmSync(path.join(pubDir,f),{force:true})}catch{}}})();

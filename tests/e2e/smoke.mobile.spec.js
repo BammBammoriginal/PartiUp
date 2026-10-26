@@ -25,8 +25,12 @@ test.describe('mobile core smoke paths', () => {
     await go(page, 'communities');
     const first = page.locator('#communities-list .community').first();
     await expect(first).toBeVisible();
-    await first.click();
+    // Tap the card's own title like a user; on narrow cards the centre can be a place or topic chip.
+    const title = first.locator(`[data-connection-type="community"][data-connection-id="${await first.getAttribute('data-id')}"]`);
+    const name = (await title.innerText()).trim();
+    await title.click();
     await expect(page.locator('#community-space')).toHaveClass(/active/);
+    await expect(page.locator('#community-space')).toContainText(name);
     await assertNoHorizontalOverflow(page);
   });
 
@@ -34,7 +38,7 @@ test.describe('mobile core smoke paths', () => {
     await go(page, 'projects');
     const project = page.locator('#projects-list .project-clickable').first();
     await expect(project).toBeVisible();
-    await project.click();
+    await project.locator('h3').click();
     await expect(page.locator('[data-otab="tasks"]')).toBeVisible();
     await assertNoHorizontalOverflow(page);
   });
@@ -50,7 +54,8 @@ test.describe('mobile core smoke paths', () => {
     await assertNoHorizontalOverflow(page);
     await page.locator('[data-discover-tab="for-you"]').click();
     await expect(page.locator('#discoverCore')).toBeVisible();
-    await expect(page.locator('#discover-list')).toBeVisible();
+    await expect(page.locator('#discoverLanding')).toBeVisible();
+    await expect(page.locator('#discoverLanding .discover-preview-card').first()).toBeVisible();
   });
 
 });
