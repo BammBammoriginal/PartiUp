@@ -108,6 +108,40 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     await status('Administration can still restrict it',req(max,'PUT',`/api/posts/${openPost.data.postId}/federation`,{state:'disabled'}),200);
     check('Restricted post is not federated',protocol.federationDecisionForPost(sql,openPost.data.postId).allowed===false);
 
+    // K7: Mastodon-compatible quiet public (to: followers, cc: Public) next to public (to: Public).
+    const PUBLIC='https://www.w3.org/ns/activitystreams#Public';
+    const maxActor=protocol.actorId('u-max'),annaActor=protocol.actorId('u-anna');
+    const closedGroup=protocol.spaceActorId(closedId),openGroup=protocol.spaceActorId(openId);
+    const quietDefault=await status('Owner publishes from the closed Space without choosing a visibility',req(max,'POST',`/api/communities/${closedId}/posts`,{body:'CLOSED_DEFAULT_QUIET',federation_state:'enabled'}),201);
+    const quietNote=protocol.noteForLocalPost(sql,quietDefault.data.postId);
+    check('Closed-Space publication defaults to quiet public',JSON.stringify(quietNote.to)===JSON.stringify([`${maxActor}/followers`])&&quietNote.cc.includes(PUBLIC)&&!quietNote.to.includes(PUBLIC),JSON.stringify({to:quietNote.to,cc:quietNote.cc}));
+    const servedQuiet=await status('Quiet public post is served over ActivityPub',req(anon,'GET',`/ap/objects/posts/${quietDefault.data.postId}`),200);
+    check('Served object carries the quiet public addressing',!servedQuiet.data.to.includes(PUBLIC)&&servedQuiet.data.cc.includes(PUBLIC));
+    const quietBoost=protocol.announceActivityForGroup(sql,closedId,quietNote);
+    check('Group boost keeps quiet public',JSON.stringify(quietBoost.to)===JSON.stringify([`${closedGroup}/followers`])&&JSON.stringify(quietBoost.cc)===JSON.stringify([PUBLIC]));
+    check('Create activity uses the note addressing',JSON.stringify(protocol.createActivityForNote(quietNote).to)===JSON.stringify(quietNote.to));
+
+    const loud=await status('Owner may still choose full public from the closed Space',req(max,'POST',`/api/communities/${closedId}/posts`,{body:'CLOSED_EXPLICIT_PUBLIC',federation_state:'enabled',federation_audience:'public'}),201);
+    const loudNote=protocol.noteForLocalPost(sql,loud.data.postId);
+    check('Explicit public is addressed to the public collection',JSON.stringify(loudNote.to)===JSON.stringify([PUBLIC]));
+    check('Group boost of a public post stays public',JSON.stringify(protocol.announceActivityForGroup(sql,closedId,loudNote).to)===JSON.stringify([PUBLIC]));
+
+    const openDefault=await status('Member publishes in the public Space without choosing',req(anna,'POST',`/api/communities/${openId}/posts`,{body:'OPEN_DEFAULT_PUBLIC',federation_state:'enabled'}),201);
+    check('Public-Space publication defaults to public',JSON.stringify(protocol.noteForLocalPost(sql,openDefault.data.postId).to)===JSON.stringify([PUBLIC]));
+
+    const openQuiet=await status('Member chooses quiet public in the public Space',req(anna,'POST',`/api/communities/${openId}/posts`,{body:'OPEN_QUIET',federation_state:'enabled',federation_audience:'quiet'}),201);
+    const reply=await status('Member replies to the quiet post',req(anna,'POST',`/api/posts/${openQuiet.data.postId}/comments`,{body:'QUIET_REPLY'}),201);
+    const replyNote=protocol.noteForLocalComment(sql,reply.data.commentId);
+    check('A reply is never more public than its post',replyNote&&JSON.stringify(replyNote.to)===JSON.stringify([`${annaActor}/followers`])&&replyNote.cc.includes(PUBLIC),JSON.stringify(replyNote&&{to:replyNote.to,cc:replyNote.cc}));
+
+    await status('Visibility of a published post cannot change',req(anna,'PUT',`/api/posts/${openQuiet.data.postId}/federation`,{state:'enabled',audience:'public'}),409);
+    const queued=protocol.createActivityForNote(protocol.noteForLocalPost(sql,openQuiet.data.postId));
+    await status('Author withdraws the post',req(anna,'PUT',`/api/posts/${openQuiet.data.postId}/federation`,{state:'disabled'}),200);
+    await status('Withdrawn post may change its visibility and be published again',req(anna,'PUT',`/api/posts/${openQuiet.data.postId}/federation`,{state:'enabled',audience:'public'}),200);
+    const refreshed=protocol.refreshPublicationActivity(sql,queued);
+    check('A queued activity is re-addressed to the current visibility',JSON.stringify(refreshed.to)===JSON.stringify([PUBLIC])&&JSON.stringify(refreshed.object.to)===JSON.stringify([PUBLIC]));
+    check('Group of the public Space is in cc',refreshed.cc.includes(`${openGroup}/followers`));
+
     console.log(`\nPost publication integration: ${passed.length}/${passed.length} checks passed.`);
   }catch(error){
     console.error(`✗ ${error.message}`);
