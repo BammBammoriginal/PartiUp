@@ -30,6 +30,7 @@ Stand: 2026-10-26 · Status: vorgeschlagener Arbeitsprozess; maßgebliche techni
 
 ## Sonderfälle
 - **Hotfix:** so eng wie möglich, Regression gezielt absichern, dokumentierte Tests nicht stillschweigend auslassen.
-- **Parallele Agenten:** unterschiedliche Branches und Aufgabengebiete; nach Merge anderer Änderungen neu abgleichen.
+- **Parallele Agenten:** unterschiedliche Branches und Aufgabengebiete; nach Merge anderer Änderungen neu abgleichen. Vor dem Start mit `gh pr list` und dem Projektregister prüfen, ob ein offener PR dieselben Dateien ändert. Wer einen fremden PR-Branch weiterbearbeitet, vermerkt das im PR als Kommentar; pro Branch arbeitet zur selben Zeit nur ein Agent. Regeldateien (`AGENTS.md`, `CLAUDE.md`, `docs/*`) werden nur in einem Docs-PR gleichzeitig geändert.
+- **Mehrere Merges hintereinander:** Die CI prüft jeden PR einzeln, nicht das Ergebnis auf `main`. Nach einer Merge-Serie laufen die Gates einmal auf dem neuen `main`; offene PRs werden danach mit `main` abgeglichen.
 - **Widersprüchliche KI-Aussagen:** den tatsächlichen Code und Testnachweise prüfen, Unsicherheit kennzeichnen.
 - **ChatGPT im normalen Chat:** kann planen und bei verbundenen Werkzeugen GitHub lesen/ändern. Work ist für umfangreichere mehrstufige Aufgaben geeignet; Codex ist optional, nicht Pflicht.

@@ -39,3 +39,54 @@ Neue Einträge **anhängen**, nicht ältere umschreiben. Format:
 - Umfang: Arbeitsanweisungen und Dokumentationsindex; kein Produktcode.
 - Tests: noch keine Laufzeit-, Security- oder Browsertests ausgeführt, da ausschließlich Markdown-Dateien angelegt werden.
 - Offene Frage: ursprünglichen zusammengeführten Projektkompass aus Chats/anderen Branches identifizieren und anschließend referenzieren, nicht still ersetzen.
+
+### 2026-10-20 – Einarbeitung Claude Code, CLAUDE.md und Projektkompass
+- Verantwortlich / Agent: Claude Code, auf Nutzerauftrag.
+- PR: #21 (`docs/claude-md`, gemergt 2026-10-26); Kommentare und Commits auf #20.
+- Anlass und Entscheidung: Einarbeitung, Installation, Testlauf; Regeln aus den verstreuten Dokumenten in `CLAUDE.md` gebündelt. Projektkompass erstellt und mit der ChatGPT-Übergabe „PartiUp – Projektkompass und technische Übergabe“ (Stand 2026-10-20) abgeglichen.
+- Nachweis: `main` `f185fcb` lokal (Windows, Node 24): preflight, qa:security, qa:gold 39/39 grün; qa:smoke, qa:layout, qa:accessibility mit bekannten Fehlschlägen.
+- Antwort auf die offene Frage oben: Der zusammengeführte Kompass existiert als ChatGPT-Übergabedokument (vom Projektverantwortlichen bereitgestellt) und als Claude-Kompass v2 (privates claude.ai-Artifact). **Keiner von beiden liegt im Repository.** Vorschlag: als `docs/PROJEKTKOMPASS.md` aufnehmen, Freigabe offen.
+
+### 2026-10-26 – PR #20 grün, Sicherheitsupdates, Merge-Serie auf `main`
+- Verantwortlich / Agent: Claude Code, auf Nutzerauftrag.
+- PR: #20, Commits `efd0585`, `1fe4409`, `1d9aba1`, `358e390`; danach Abgleich mit `main` (`747a539`).
+- Inhalt: starre Kartenklick-Tests auf Titelklick umgestellt (Beleg: CI-Screenshot, Klick traf Themen-Chip); mobiler Layout-Test prüft Teilnahme-Aktionen ≥ 40 px, übrige Buttons ≥ 24 px, scrollbare Tab-Leisten korrekt; body-parser 1.20.9 und multer 2.5.0 (GHSA-27r3-jxmh-p828, GHSA-q7qp-rjg7-q26m, beide high).
+- Nachweis: GitHub-CI Run 40306591134 auf `358e390` grün (Audits 0, Smoke, Layout, Accessibility, Gold 45/45).
+- Merge-Serie auf `main` am 2026-10-26 (#21, #16, #13, #17, #19, #18): kombinierter Stand `747a539` lokal nachgetestet. preflight, qa:security, qa:gold 43/43 grün; `audit:prod` 3 × high (body-parser, multer, sharp), smoke/layout/accessibility mit den bekannten, in #20 behobenen Fehlern.
+- Offen: Gold-Test „Benachrichtigung lesen aktualisiert Liste und Zähler“ auf #20 sporadisch rot (lokal 2 von 8), Ursache nicht belegt.
+
+### 2026-10-26 – Regeldateien zusammengeführt
+- Verantwortlich / Agent: Claude Code, auf Nutzerauftrag („alle Regeln sinnvoll zusammenführen, Widersprüche aufzeigen und Lösungen skizzieren“).
+- PR: #22 (`docs/ai-collaboration-2026-10-26`), mit `main` abgeglichen.
+- Ergebnis: `AGENTS.md` ist die eine Regelquelle für alle (zusammengeführt aus #22, der `AGENTS.md` aus #20 und `CLAUDE.md` aus #21); `CLAUDE.md` bindet sie per `@AGENTS.md` ein und enthält nur Claude-Spezifisches und Praxis. `AGENTS.md` wird aus #20 entfernt, damit die PRs keine Datei mehr gemeinsam anlegen.
+- Tests: keine Laufzeittests nötig (nur Markdown); `preflight` auf dem Branch ausgeführt, siehe PR.
+
+## Entscheidungen der projektverantwortlichen Person
+Nur ausdrücklich getroffene Entscheidungen mit Datum. Weitere Entscheidungen aus früheren Chats gelten bis zur Bestätigung als „zu bestätigen“.
+
+| Datum | Entscheidung | Status |
+|---|---|---|
+| 2026-10-20 | Zielgruppe sind Menschen ohne Technikkenntnisse; UI/UX, Zugänglichkeit und Erklärbarkeit haben Vorrang | V |
+| 2026-10-20 | Schlanker Core, Erweiterbarkeit, Föderation und Anbindbarkeit in alle Richtungen (CivicTech/GovTech) sind tragende Säule | V |
+| 2026-10-20 | Tests prüfen Verhalten statt Quelltext-Zeichenketten und passen sich verhaltensgleichen Änderungen an | V |
+| 2026-10-20 | Zielgruppen- und UX-Vorgabe gehört in die werkzeugübergreifende `AGENTS.md` | V |
+| 2026-10-26 | Meta-Aktionen („Melden“, „Info“, „Einstellungen“) gut sichtbar, aber klein und unauffällig | V |
+| 2026-10-26 | body-parser 1.20.9 und multer 2.5.0 werden in PR #20 eingespielt | V |
+| 2026-10-26 | Alle Regeln werden zusammengeführt | V |
+| 2026-10-20 | Aus ChatGPT-Übergabe: Leitsätze „Mehr Raum für uns“, „Social Media kann auch sozial sein“; Namensalternative „Plura“; Drupal nur headless für Redaktionsinhalte, Open Social kein zweiter Core (ADR in PR #6 geschlossen, nicht gemergt) | zu bestätigen |
+
+## Widersprüche zwischen den bisherigen Regelquellen (2026-10-26)
+Gefunden beim Zusammenführen von #20, #21 und #22. „Lösung“ ist in `AGENTS.md`/`CLAUDE.md` umgesetzt, sofern nicht „Freigabe offen“ steht.
+
+| Nr. | Widerspruch | Lösung |
+|---|---|---|
+| W1 | Installation: `CLAUDE.md` (#21) empfahl Node 22, `npm ci` und bei Problemen `npm rebuild better-sqlite3`; #20 verlangt Node 24, `npm ci --ignore-scripts` und keine Installationsskripte. | Regel nach #20; Rebuild-Hinweis entfernt, stattdessen `deps:build`. Bis zum Merge von #20 läuft `main` noch mit Node 22. |
+| W2 | Rollen: #22 erlaubt ChatGPT ebenfalls Codeänderungen, ohne Absprache-Regel. Folge: drei PRs legten dieselben Regeldateien an. | Pro Branch zur selben Zeit nur ein Agent, Übernahme im PR vermerken, Regeldateien nur in einem Docs-PR (`docs/AI-COLLABORATION.md`). |
+| W3 | Priorität: `HUMAN-HANDOVER-ROADMAP.md` und #22-`CLAUDE.md` nennen die Modernisierung einen aktiven Auftrag „beginne mit Etappe 1“; Kompass und #22-`AGENTS.md` setzen Sicherheit, PoC und MVP zuerst und verbieten unaufgeforderte Refactorings. | Vorschlag: Sicherheit (#20) zuerst, Etappe 1 als reine Bestandsaufnahme parallel, ab Etappe 2 bevorzugt Codepfade, die PoC oder MVP ohnehin anfassen. **Freigabe offen.** |
+| W4 | Rot-zuerst: Retrospektive verlangt zwingend einen roten Test vor dem Fix, #22 nur „nach Möglichkeit“. | Zwingend für Produktfehler; bei umgebungsspezifischen Fehlern ersetzt ein CI-Artefakt den lokalen Rot-Nachweis. |
+| W5 | „Keine neuen Zeichenkettenprüfungen“ gegenüber rund 1.000 bestehenden; einzelne Preflights prüfen sogar den Wortlaut der Testdateien und können so Testverbesserungen blockieren. | Blockiert ein solcher Preflight eine verhaltensgleiche Änderung, wird die Prüfung im selben PR auf Verhalten umgestellt; sonst schrittweiser Abbau. |
+| W6 | „Eine Änderung pro PR“ gegenüber #20 (Sicherheits-Retrofit über viele Dateien, dazu Tests und Abhängigkeiten). | Einmalige, ausdrücklich gebilligte Ausnahme; künftige Retrofits werden aufgeteilt. **Bestätigung offen.** |
+| W7 | Quellenhierarchie: #22 erkennt Chats nicht als Nachweis an, die ChatGPT-Übergabe führt Chat-Entscheidungen als verbindlich. | Verbindlich erst mit Eintrag in diesem Register; Chat-Entscheidungen stehen oben als „zu bestätigen“. |
+| W8 | Gates: #22 und #21 setzten Tests pro PR voraus, aber die CI läuft nicht nach Merges auf `main`; am 2026-10-26 wurden sechs PRs ohne gemeinsamen Nachtest gemergt. | Nach einer Merge-Serie Gates einmal auf `main`. Vorschlag zusätzlich: Workflow auch bei `push` auf `main` ausführen und in den Branch-Schutzregeln „Branch muss aktuell sein“ aktivieren. **Freigabe offen.** |
+| W9 | Layout-Test verlangte 40 px für alle Buttons; Entscheidung vom 2026-10-26: Meta-Aktionen klein. | Primäre Aktionen ≥ 40 px, alle übrigen ≥ 24 px (WCAG 2.2); umgesetzt in #20. |
+| W10 | `CLAUDE.md` (#21) enthielt zeitgebundene Statusangaben, die schnell veralten. | Status steht nur noch in diesem Register. |

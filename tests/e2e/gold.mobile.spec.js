@@ -181,6 +181,11 @@ test.describe('Goldstandard Mobile 412x915', () => {
     await page.locator('#messageComposer button[type="submit"]').click();
     const message = await (await messageResponse).json();
     const bubble = page.locator(`[data-message-id="${message.id}"]`);
+    await bubble.locator('.message-reaction-picker summary').click();
+    await bubble.locator('[data-reaction-choice="🤔"]').click();
+    await expect(bubble.locator('.message-reactions > button[data-emoji="🤔"]')).toHaveClass(/active/);
+    await bubble.locator('.message-reactions > button[data-emoji="🤔"]').click();
+    await expect(bubble.locator('.message-reactions > button[data-emoji="🤔"]')).toHaveCount(0);
     await expect(bubble.locator('[data-delete-message]')).toBeVisible();
     page.once('dialog', dialog => dialog.accept());
     const deleted = page.waitForResponse(response => response.url().endsWith(`/api/messages/${message.id}`) && response.request().method() === 'DELETE');

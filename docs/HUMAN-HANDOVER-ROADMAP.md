@@ -22,5 +22,8 @@ HTTP/Express-Router -> Application Service (Anwendungsablauf) -> Domain/Policy (
 - Verbindliche Statuschecks und Pull-Request-Regeln für `main` nach Repository-/Tarifmöglichkeiten konfigurieren; Schutzstatus separat kontrollieren. Fehlende Schutzfunktion nicht als eingerichtet bezeichnen.
 - Abgeschlossene Etappen im `docs/PROJECT-REGISTER.md` protokollieren; offene und blockierte Etappen sichtbar halten.
 
+## Einordnung gegenüber Sicherheit, PoC und MVP
+Diese Roadmap läuft neben dem Produktfahrplan, nicht vor ihm. Vorschlag (Freigabe offen, siehe Projektregister 2026-10-26): Sicherheits-Baseline (PR #20) zuerst; Etappe 1 als reine Bestandsaufnahme parallel; ab Etappe 2 wird bevorzugt ein Codepfad modernisiert, der für Föderations-PoC oder MVP ohnehin angefasst wird, damit Modernisierung und Produktarbeit sich nicht gegenseitig blockieren.
+
 ## Erstes konkret messbares Ziel
 Noch **kein** Wechsel zu PostgreSQL. Zuerst eine präzise Ist-Aufnahme und einen einzigen funktionierenden End-to-End-Adapter-Schnitt mit bestandenem Verhaltenstest erstellen. Danach anhand des tatsächlichen Aufwandes weitere Etappen planen.

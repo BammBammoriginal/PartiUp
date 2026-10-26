@@ -1,6 +1,6 @@
 const fs=require('fs');
 const app=fs.readFileSync('public/app.js','utf8');
-const srv=fs.readFileSync('server/server.js','utf8');
+const srv=fs.readFileSync('server/server.js','utf8')+fs.readFileSync('server/core/permissions.js','utf8');
 const checks=[];const add=(n,ok)=>checks.push([n,!!ok]);
 add('Community trennt Funktionen von Info/Einstellungen',app.includes('space-function-tabs')&&app.includes('data-ctab="info"')&&app.includes('data-ctab="admin"'));
 add('Projekt/Event trennt Funktionen von Info/Einstellungen',app.includes('data-otab="info"')&&app.includes('data-otab="admin"')&&app.includes('object-space-tabs space-function-tabs'));
