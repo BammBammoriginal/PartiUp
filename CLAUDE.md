@@ -82,6 +82,7 @@ Die Regeln sind über viele Dokumente verteilt; diese Zusammenfassung verweist a
 ### Arbeits- und QA-Regeln (`QA-RELEASE-PROCESS.md`, `QA-FAST-FULL.md`)
 
 - **Eine fachliche Änderung pro Branch/PR.** Vorher betroffene Space-Typen, vernetzte Ansichten, Rechte-, Privacy- und Föderationsgrenzen benennen. Keine unaufgeforderten Refactorings; ein berührter Codepfad darf im selben PR verhaltensgleich modernisiert werden, wenn das benannt und getestet ist.
+- **Zuschnitt (W6, 26.10.2026):** Vor jedem PR prüfen, ob eng verwandte, risikoarme Änderungen gebündelt werden (gleichartige Testkorrekturen, Doku, kleine serverseitige Fixes ohne Wirkung auf Abläufe), um Aufwand und Token zu sparen. Getrennt bleiben Änderungen, die Funktionen oder Abläufe stören könnten oder manuell geprüft werden müssen. PR #20 ist als Sammel-PR einmalig gebilligt; die Grundregel bleibt.
 - Produktfehler zuerst mit einem Test **rot** reproduzieren, minimal korrigieren, Test grün, dann alle Gates laufen lassen und den Git-Diff auf Seiteneffekte prüfen. Tritt ein Fehler nur in einer bestimmten Umgebung auf (z. B. nur in der Linux-CI), ersetzt ein gesichertes CI-Artefakt (Screenshot, Trace) den lokalen Rot-Nachweis.
 - Jede Störung einordnen: Produkt-, Test-, Umgebungsfehler oder geteilte Ursache, mit Beleg (Trace/Screenshot). Eine Testkorrektur darf kein echtes Nutzerproblem verdecken.
 - Ehrliche QA: keine pauschalen Wartezeiten, `force`-Klicks, Login-/API-Bypässe, höheren Timeouts, Retries oder gelockerten Rate-Limits. Bereitschaft am sichtbaren UI-Zustand messen, nicht nur an HTTP 200. Zeitabhängige Fehler werden mit gezielt zurückgehaltenen Antworten (`page.route`) reproduziert, nicht mit Wartezeiten.
@@ -97,7 +98,7 @@ Die Regeln sind über viele Dokumente verteilt; diese Zusammenfassung verweist a
 - Desktop- und Mobile-Annahmen nie in einem Test mischen (Desktop = Sidebar, Mobile = Bottom-Nav/Drawer `#mobileMore`).
 - Rechte-/Privacy-Änderungen brauchen einen serverseitigen Negativtest; neue Ansichten/Kachelvarianten einen Smoke-/Layout-Test.
 - Ohne echten Chromium-Lauf (Desktop **und** Mobile) keine Freigabe; nicht Ausgeführtes ausdrücklich als „ungeprüft“ benennen. Visual-Baselines nur nach bewusster Sichtprüfung aktualisieren.
-- Werden mehrere PRs nacheinander gemergt, laufen die Gates danach einmal auf dem neuen `main` (die CI prüft nur einzelne PRs).
+- Die CI läuft für jeden PR, auch für gestapelte PRs gegen einen anderen PR-Branch, und nach jedem Merge auf `main` (W8, 26.10.2026, mit PR #20). Vor PR #20 prüfte sie nur PRs gegen `main`; bis zum Merge nach einer Merge-Serie die Gates lokal auf `main` laufen lassen.
 
 ### Menschliche Übernahme, Modularisierung und Entkopplung von SQLite (`docs/HUMAN-HANDOVER-ROADMAP.md`, `AGENTS.md` §7)
 
