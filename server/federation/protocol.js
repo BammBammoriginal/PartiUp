@@ -8,6 +8,7 @@ const {remoteFetch,actorLookup,getCachedActor,cacheActor,isNegativeActorCached,c
 const federationKeyStore=require('./key-store');
 const {evaluatePeer,recordPeerObservation}=require('./governance');
 const {attachmentDocumentsForEntity,primaryImageForEntity}=require('./media');
+const {createPermissionService}=require('../core/permissions');
 const AS='https://www.w3.org/ns/activitystreams';
 const AP_ACCEPT=['application/activity+json','application/ld+json; profile="https://www.w3.org/ns/activitystreams"'];
 function envBoundedInt(name,fallback,min,max){const n=Number.parseInt(process.env[name]||'',10);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;}
@@ -208,7 +209,7 @@ function isPublicObject(obj){
   return vals.includes(publicAudience());
 }
 function federationDecisionForPost(db,postId){
-  const p=db.prepare(`SELECT p.id,p.author_id,p.federation_state,c.visibility community_visibility,c.federation_mode FROM posts p JOIN communities c ON c.id=p.community_id WHERE p.id=?`).get(postId);
+  const p=db.prepare(`SELECT p.id,p.author_id,p.community_id,p.federation_state,c.visibility community_visibility,c.federation_mode FROM posts p JOIN communities c ON c.id=p.community_id WHERE p.id=?`).get(postId);
   if(!p)return {allowed:false,reason:'post_not_found'};
   const moderation=db.prepare("SELECT state FROM moderation_content_state WHERE target_type='post' AND target_id=?").get(postId);if(moderation&&moderation.state!=='active')return {allowed:false,reason:'post_moderated'};
   if(!isUserFederationEnabled(db,p.author_id))return {allowed:false,reason:'author_federation_disabled'};
@@ -221,6 +222,9 @@ function federationDecisionForPost(db,postId){
   if(p.community_visibility!=='public'){
     if(mode!=='selected')return {allowed:false,reason:'nonpublic_space_requires_selected_mode',mode,state,communityVisibility:p.community_visibility};
     if(state!=='enabled')return {allowed:false,reason:'nonpublic_post_requires_explicit_opt_in',mode,state,communityVisibility:p.community_visibility};
+    // The author's opt-in only counts while the author still holds the Space's external-publication right;
+    // checked on every decision so a later role change also stops serving and delivering the post.
+    if(!createPermissionService(db).hasPermission(p.author_id,'community',p.community_id,'content.publish_external'))return {allowed:false,reason:'author_lacks_publication_right',mode,state,communityVisibility:p.community_visibility};
     return {allowed:true,reason:'explicit_public_federation_from_nonpublic_space',mode,state,communityVisibility:p.community_visibility};
   }
   if(mode==='selected'&&state!=='enabled')return {allowed:false,reason:'post_not_selected',mode,state,communityVisibility:p.community_visibility};

@@ -773,10 +773,21 @@ app.delete('/api/communities/:id/membership',requireUser,(req,res)=>{
 });
 
 app.post('/api/communities/:id/join',requireUser,(req,res)=>{const c=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);const d=communityAccessDecision(req.userId,c);if(!d.ok)return res.status(403).json({error:d.error});if(d.status==='request'){db.prepare(`INSERT INTO community_join_requests(community_id,user_id,status) VALUES (?,?,'pending') ON CONFLICT(community_id,user_id) DO UPDATE SET status='pending',created_at=CURRENT_TIMESTAMP`).run(c.id,req.userId);return res.status(202).json({ok:true,status:'requested'});}db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(c.id,req.userId);res.json({ok:true,status:'joined'});});
+// Explicit Fediverse publication needs two keys, like announcement rights on other platforms:
+// the author's consent for this post, and in a non-public Space the Space's external-publication right.
+// Restricting (inherit/disabled) stays open to the author and the Space administration.
+function postPublicationError(userId,communityId,authorId){
+  if(userId!==authorId)return 'Nur wer den Beitrag geschrieben hat, kann ihn nach außen freigeben.';
+  const space=db.prepare('SELECT visibility FROM communities WHERE id=?').get(communityId);
+  if(space?.visibility!=='public'&&!hasPermission(userId,'community',communityId,'content.publish_external'))return 'Beiträge aus diesem geschlossenen Space darf nur nach außen veröffentlichen, wer dafür im Space berechtigt ist.';
+  return null;
+}
 app.post('/api/communities/:id/posts',requireUser,(req,res)=>{
   if(!mustBeMember(req.userId,req.params.id))return res.status(403).json({error:'Keine Berechtigung zum Schreiben.'});if(!hasPermission(req.userId,'community',req.params.id,'content.create'))return res.status(403).json({error:'Keine Berechtigung zum Schreiben.'});
   const body=text(req.body?.body,5000);if(!body)return res.status(400).json({error:'Der Beitrag ist leer.'});
-  const federationState=['inherit','enabled','disabled'].includes(req.body?.federation_state)?req.body.federation_state:'inherit';const postId='post-'+crypto.randomUUID();db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state) VALUES (?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState);let federated=0,groupFederated=0;try{if(baseUrl()){const note=noteForLocalPost(db,postId);if(note){federated=queueActivityForFollowers(db,req.userId,createActivityForNote(note));groupFederated=queueActivityForSpaceFollowers(db,req.params.id,announceActivityForGroup(db,req.params.id,note));}}}catch(e){console.warn('Post federation enqueue:',e.message)}res.status(201).json({postId,federatedDeliveries:federated,groupFederatedDeliveries:groupFederated,federation:federationDecisionForPost(db,postId),community:communityDetail(req.params.id,req.userId)});
+  const federationState=['inherit','enabled','disabled'].includes(req.body?.federation_state)?req.body.federation_state:'inherit';
+  if(federationState==='enabled'){const publicationError=postPublicationError(req.userId,req.params.id,req.userId);if(publicationError)return res.status(403).json({error:publicationError});}
+  const postId='post-'+crypto.randomUUID();db.prepare('INSERT INTO posts(id,community_id,author_id,body,federation_state) VALUES (?,?,?,?,?)').run(postId,req.params.id,req.userId,body,federationState);let federated=0,groupFederated=0;try{if(baseUrl()){const note=noteForLocalPost(db,postId);if(note){federated=queueActivityForFollowers(db,req.userId,createActivityForNote(note));groupFederated=queueActivityForSpaceFollowers(db,req.params.id,announceActivityForGroup(db,req.params.id,note));}}}catch(e){console.warn('Post federation enqueue:',e.message)}res.status(201).json({postId,federatedDeliveries:federated,groupFederatedDeliveries:groupFederated,federation:federationDecisionForPost(db,postId),community:communityDetail(req.params.id,req.userId)});
 });
 
 app.post('/api/communities/:id/posts-with-media',requireUser,upload.single('image'),async(req,res)=>{
@@ -784,6 +795,7 @@ app.post('/api/communities/:id/posts-with-media',requireUser,upload.single('imag
   const body=text(req.body?.body,5000);if(!body)return res.status(400).json({error:'Der Beitrag ist leer.'});
   if(!req.file)return res.status(400).json({error:'Bitte ein unterstütztes Bild auswählen.'});
   const federationState=['inherit','enabled','disabled'].includes(req.body?.federation_state)?req.body.federation_state:'inherit';
+  if(federationState==='enabled'){const publicationError=postPublicationError(req.userId,req.params.id,req.userId);if(publicationError)return res.status(403).json({error:publicationError});}
   const postId='post-'+crypto.randomUUID();let media=null;
   try{
     media=await persistImage(req.file,req.userId);
@@ -800,6 +812,7 @@ app.put('/api/posts/:id/federation',requireUser,(req,res)=>{
   const p=db.prepare('SELECT p.*,c.created_by community_owner FROM posts p JOIN communities c ON c.id=p.community_id WHERE p.id=?').get(req.params.id);if(!p)return res.status(404).json({error:'Beitrag nicht gefunden.'});
   const canAdmin=hasPermission(req.userId,'community',p.community_id,'space.manage_access');if(!(p.author_id===req.userId&&hasPermission(req.userId,'community',p.community_id,'content.create'))&&!canAdmin)return res.status(403).json({error:'Nur Autor oder Space-Administration dürfen die Federation dieses Beitrags ändern.'});
   const state=['inherit','enabled','disabled'].includes(req.body?.state)?req.body.state:null;if(!state)return res.status(400).json({error:'Ungültige Federation-Einstellung.'});
+  if(state==='enabled'){const publicationError=postPublicationError(req.userId,p.community_id,p.author_id);if(publicationError)return res.status(403).json({error:publicationError});}
   const before=federationDecisionForPost(db,p.id);let oldNote=null;try{if(before.allowed&&baseUrl())oldNote=noteForLocalPost(db,p.id)}catch{}
   db.prepare('UPDATE posts SET federation_state=? WHERE id=?').run(state,p.id);const after=federationDecisionForPost(db,p.id);let federated=0;
   try{if(baseUrl()&&!before.allowed&&after.allowed){const note=noteForLocalPost(db,p.id);if(note)federated=queueActivityForFollowers(db,p.author_id,createActivityForNote(note));}else if(baseUrl()&&before.allowed&&!after.allowed&&oldNote){federated=queueActivityForFollowers(db,p.author_id,deleteActivityForObject(p.author_id,oldNote.id));}}catch(e){console.warn('Post federation policy transition:',e.message)}
