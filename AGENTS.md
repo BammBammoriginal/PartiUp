@@ -26,3 +26,15 @@ Stand: 2026-10-26. Gilt für Code-Analysen und Änderungen im gesamten Repositor
 ## Übergabe
 Jeder PR beschreibt: Ziel, Ausgangsstand (Branch/Commit), Änderungen, betroffene Bereiche, Risiken, ausgeführte Tests mit Resultat, nicht ausgeführte Prüfungen, offene Punkte und notwendige Freigaben.
 Entscheidungen/Arbeitsverläufe nach `docs/PROJECT-REGISTER.md` dokumentieren. Keine Tokens, Kennwörter, persönliche Nutzerdaten oder vertrauliche Logdateien committen.
+
+
+## Verbindliches Architekturziel: menschliche Übernahme
+PartiUp muss jederzeit von einem qualifizierten menschlichen Entwicklerteam ohne Abhängigkeit von ChatGPT, Claude oder historischen Chats weiterentwickelt werden können. Wartbarkeit (Modularität, Analysierbarkeit, Änderbarkeit, Testbarkeit), Sicherheit und Betriebsfähigkeit sind ausdrücklich Qualitätsanforderungen. Orientierungen: ISO/IEC 25010, NIST SSDF und OWASP ASVS; Konformität niemals ohne nachgewiesenes Audit behaupten.
+
+- Strikte Verantwortungsgrenzen anstreben: HTTP-Routen/Controller, Anwendungsdienste und Fachregeln, Berechtigungen, Datenzugriff, Infrastruktur/Federation getrennt halten. Bestehende große Dateien (`server/server.js`, `server/db.js`) *schrittweise* und verhaltensgleich abbauen, keine risikoreiche Komplettneuschreibung.
+- Fachlogik darf für neu extrahierte Komponenten nicht vom SQLite-Treiber oder SQLite-spezifischem SQL abhängen; Datenzugriff hinter dokumentierte Repository-/Adapter-Verträge legen. Bestehenden SQLite-Code bis zu kontrolliertem Ersatz weiter betreiben.
+- Datenbankwechsel ist erst ausreichend vorbereitet, wenn ein zweiter Adapter oder ein nachweisbarer PostgreSQL-Prototyp die relevanten gemeinsamen Vertragstests besteht; reine Interfaces/Dokumentation sind kein Migrationsnachweis.
+- Migrationen müssen versioniert, überprüfbar und mit Datenintegritäts-, Backup-/Restore- und Rückfallstrategie geplant werden. Kein produktiver Datenbankwechsel ohne gesonderte Freigabe.
+- Für neue Module sind klar benannte öffentliche Schnittstellen, Datenflüsse, Eigentümer/Verantwortlichkeiten, Fehlerfälle und Tests zu dokumentieren. Neue Features dürfen nach Möglichkeit keine weitere direkte Kopplung an monolithische Dateien herstellen; begründete Ausnahmen im PR benennen.
+- Maintainability-Aufgaben gelten als **nicht erledigt**, solange nur Prompts, Markdown, leere Verzeichnisse oder ungenutzte Abstraktionen vorliegen. Fertig bedeutet: produktiv genutzter Codepfad ist tatsächlich umgestellt und Regressionstests bestehen.
+- Die konkrete Reihenfolge, Abnahmekriterien und Fortschrittsnachweise stehen in `docs/HUMAN-HANDOVER-ROADMAP.md`. Bei jeder neuen Fachfunktion prüfen, ob eine günstige Modernisierung eines berührten Codepfads möglich ist, ohne notwendige Sicherheits-/Stabilitätsaufgaben zu verdrängen.
