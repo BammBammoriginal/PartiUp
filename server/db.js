@@ -11,6 +11,7 @@ const {installMediaFederationSchema,remoteMediaForObject} = require('./federatio
 const dbPath = process.env.BUP_DB_PATH ? path.resolve(process.env.BUP_DB_PATH) : path.join(__dirname, '..', 'data', 'bottomupparti.db');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new Database(dbPath);
+const permissionService=require('./core/permissions').createPermissionService(db);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
@@ -1210,6 +1211,7 @@ function participationCanInteract(userId,r){
   if(!canViewParticipation(r,userId,{forList:false}))return {ok:false,reason:'visibility'};
   if(r.source!=='native')return {ok:false,reason:'external'};
   if(r.status==='abgeschlossen')return {ok:false,reason:'closed'};
+  if(permissionService.hasRoleContext(userId,'participation',r.id)&&!permissionService.hasPermission(userId,'participation',r.id,'participation.interact'))return {ok:false,reason:'role'};
   if(r.created_by===userId)return {ok:true};
   const participantTrust=Number(db.prepare('SELECT trust_level FROM users WHERE id=?').get(userId)?.trust_level||0);
   if(participantTrust<Number(r.min_participant_trust||1))return {ok:false,reason:'trust'};
@@ -1434,8 +1436,9 @@ function communityDetail(id,userId=null){
   const participation=listParticipation(userId).filter(x=>visibleInSpace(x.owner_space_id,id,x.propagation_scope)||(x.communities.some(c=>c.id===id)&&!x.owner_space_id)).map(x=>({...x,origin_space:originFor(x.owner_space_id,id)}));
   const polls=pollsForCommunity(id,userId);
   const members=isMember?db.prepare(`SELECT u.id,u.name,u.avatar,u.trust_level,m.role FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.community_id=? ORDER BY CASE m.role WHEN 'admin' THEN 1 WHEN 'moderator' THEN 2 ELSE 3 END,u.name`).all(id):[];
-  const posts=feedPosts(userId,id),federated_items=federatedItemsForCommunity(id);return {...base,parent,children,posts,federated_items,feed_items:unifiedFeed(userId,id,false,150),events:eventItems,projects:projectItems,participation,polls,members};
+  const posts=feedPosts(userId,id),federated_items=federatedItemsForCommunity(id);const authz={my_role:permissionService.roleFor(userId,'community',id),my_permissions:permissionService.ALL_PERMISSIONS.filter(p=>permissionService.hasPermission(userId,'community',id,p))};return {...base,authz,parent,children,posts,federated_items,feed_items:unifiedFeed(userId,id,false,150),events:eventItems,projects:projectItems,participation,polls,members};
 }
 function bootstrap(userId=null){const memberships=userId?db.prepare(`SELECT m.community_id,m.role,m.created_at,c.name,c.icon,c.type FROM memberships m JOIN communities c ON c.id=m.community_id WHERE m.user_id=? ORDER BY c.name`).all(userId):[];const notification_count=userId?db.prepare('SELECT COUNT(*) n FROM notifications WHERE user_id=? AND read_at IS NULL').get(userId).n:0;const following=followsForUser(userId);const friendships=friendshipNetwork(userId);return {notification_count,places:db.prepare('SELECT * FROM places').all(),topics:db.prepare('SELECT name FROM topics ORDER BY name').all().map(x=>x.name),communities:listCommunities(userId),events:listEvents(userId),projects:listProjects(userId),participation:listParticipation(userId),people:listPeople(userId),feed:unifiedFeed(userId,null,!!userId,40),following,friendships,memberships,user:userId?getUserSafe(userId):null};}
 
 module.exports={db,ensureTopic,bootstrap,communityDetail,eventDetail,projectDetail,participationDetail,getUserSafe,userProfile,listPeople,verifyPassword,hashPassword,mediaFor,mediaOne,followsForUser,isFollowing,friendshipPair,friendshipRelation,friendshipNetwork,firstSharedCommunity,profileActivityTarget,profileActivityForUser,prefAllows,stricterVisibility,visibilityLabel,ensureObjectModules,modulesForObject,tasksForObject,canViewEventRow,canRequestEventAttendance,hasApprovedEventAttendance,canViewProjectRow,canViewParticipation,participationCanInteract,canRequestParticipationAccess,listParticipation,listProjects,listEvents};
+

@@ -51,6 +51,7 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
 
     const privateCommunity=await status('Owner can create private community',req(max,'POST','/api/communities',{name:'Private QA Space',type:'Community',places:['erl'],topics:['Demokratie'],visibility:'private',join_policy:'invite'}),201);
     const privateId=privateCommunity.data.id;
+    await status('Unrelated account cannot read private Space roles',req(anna,'GET',`/api/permissions/community/${privateId}`),404);
     const privatePost=await status('Owner can create post in private community',req(max,'POST',`/api/communities/${privateId}/posts`,{body:'PRIVATE-QA-MARKER'}),201);
     check('Private post was created',!!privatePost.data.postId,String(privatePost.data.postId||''));
     const anonBootstrap=await status('Anonymous bootstrap loads',req(anon,'GET','/api/bootstrap'),200);
@@ -99,6 +100,41 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     check('Report is present in moderation queue',(queue.data.reports||[]).some(x=>x.id===report.data.id));
     await status('Moderator can mark report for review',req(lisa,'PUT',`/api/moderation/community/jugend/reports/${report.data.id}`,{action:'review',note:'Integration'}),200);
 
+
+    const scope=await status('Create isolated role scope',req(max,'POST','/api/communities',{name:'Role withdrawal QA',places:['erl']}),201);
+    const scopeId=scope.data.id;
+    await status('Member joins isolated scope',req(anna,'POST',`/api/communities/${scopeId}/join`,{}),200);
+    const projection=await status('Community capabilities are projected',req(anna,'GET',`/api/communities/${scopeId}`),200);
+    check('Community projection uses effective member role',projection.data.authz.my_role==='member');
+    const post=await status('Member can write before demotion',req(anna,'POST',`/api/communities/${scopeId}/posts`,{body:'Before demotion'}),201);
+    const legacy=await status('Owner creates legacy poll fixture',req(max,'POST',`/api/communities/${scopeId}/polls`,{question:'Legacy role gate',options:['A','B']}),201);
+    const core=await status('Owner creates members participation',req(max,'POST','/api/participation',{name:'Role gate participation',places:['erl'],owner_space_id:scopeId,access_policy:'members',modules:{poll:true},poll:{question:'Role gate',options:['A','B']}}),201);
+    const detail=await status('Member opens participation before role change',req(anna,'GET',`/api/participation/${core.data.id}`),200);
+    const q=detail.data.questions[0],option=q.options[0].id;
+    await status('Member votes before role change',req(anna,'POST',`/api/participation/${core.data.id}/questions/${q.id}/vote`,{optionId:option}),200);
+    const project=await status('Create inherited project scope',req(max,'POST','/api/projects',{name:'Inherited role QA',places:['erl'],owner_space_id:scopeId}),201);
+    const event=await status('Create inherited event scope',req(max,'POST','/api/events',{name:'Inherited event QA',places:['erl'],owner_space_id:scopeId,start_at:'2026-10-20T18:00:00+02:00',end_at:'2026-10-20T20:00:00+02:00'}),201);
+    await status('Owner demotes member to guest',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-anna`,{role:'guest'}),200);
+    for(const [type,id] of [['community',scopeId],['project',project.data.id],['event',event.data.id],['participation',core.data.id]]){
+      const snap=await status(`Effective guest role in ${type}`,req(anna,'GET',`/api/permissions/${type}/${id}`),200);
+      check(`Guest cannot create or participate in ${type}`,snap.data.my_role==='guest'&&!snap.data.my_permissions.includes('content.create')&&!snap.data.my_permissions.includes('participation.interact'));
+    }
+    await status('Demotion blocks new posts without re-login',req(anna,'POST',`/api/communities/${scopeId}/posts`,{body:'Forbidden'}),403);
+    await status('Demotion blocks comments without re-login',req(anna,'POST',`/api/posts/${post.data.postId}/comments`,{body:'Forbidden'}),403);
+    await status('Demotion blocks a previously opened participation vote',req(anna,'POST',`/api/participation/${core.data.id}/questions/${q.id}/vote`,{optionId:option}),403);
+    await status('Demotion blocks project task creation',req(anna,'POST',`/api/objects/project/${project.data.id}/tasks`,{title:'Forbidden'}),403);
+    await status('Demotion blocks event task creation',req(anna,'POST',`/api/objects/event/${event.data.id}/tasks`,{title:'Forbidden'}),403);
+    const legacyDetail=await req(max,'GET',`/api/communities/${scopeId}`);
+    const legacyPoll=legacyDetail.data.polls[0];
+    await status('Demotion also blocks legacy votes',req(anna,'POST',`/api/polls/${legacyPoll.id}/vote`,{optionId:legacyPoll.options[0].id}),403);
+    await status('Owner restores member',req(max,'PUT',`/api/permissions/community/${scopeId}/role/u-anna`,{role:'member'}),200);
+    await status('Restored role works in existing session',req(anna,'POST',`/api/participation/${core.data.id}/questions/${q.id}/vote`,{optionId:option}),200);
+    await status('Explicit child demotion can restrict inherited role',req(max,'PUT',`/api/permissions/participation/${core.data.id}/role/u-anna`,{role:'guest'}),200);
+    await status('Child guest assignment blocks participation',req(anna,'POST',`/api/participation/${core.data.id}/questions/${q.id}/vote`,{optionId:option}),403);
+    const open=await status('Create intentionally open public participation',req(max,'POST','/api/participation',{name:'Public role QA',places:['erl'],modules:{poll:true},poll:{question:'Open',options:['A','B']}}),201);
+    const openDetail=await req(anna,'GET',`/api/participation/${open.data.id}`);
+    await status('Unrelated public participant remains eligible',req(anna,'POST',`/api/participation/${open.data.id}/questions/${openDetail.data.questions[0].id}/vote`,{optionId:openDetail.data.questions[0].options[0].id}),200);
+
     const noCsrfJar=await login('max@bottomupparti.local');
     noCsrfJar.csrf=null;
     await status('State-changing request without CSRF is rejected',req(noCsrfJar,'POST','/api/notifications/read',{}, {csrf:false}),403);
@@ -118,3 +154,4 @@ async function status(name,promise,expected){const r=await promise;check(name,r.
     for(const suffix of ['','-wal','-shm']){try{fs.rmSync(dbPath+suffix,{force:true});}catch{}}
   }
 })();
+

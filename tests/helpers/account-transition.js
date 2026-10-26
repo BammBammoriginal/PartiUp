@@ -1,0 +1,90 @@
+const { test, expect } = require('@playwright/test');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { waitForApp, openIdentity, closeMobileDrawer, fillObjectForm, openCreation, assertNoHorizontalOverflow, captureRuntimeFailures } = require('./gold');
+
+module.exports = function registerAccountTransition() {
+  test.setTimeout(30_000);
+  test('Kontowechsel entfernt Verwaltung und private Ansichten; Anmeldung per Enter', async ({ browser, viewport }) => {
+    // A fresh process gives this scenario its own database and normal rate limits.
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'partiup-account-transition-'));
+    const port = 33000 + Math.floor(Math.random() * 1000);
+    const baseURL = `http://127.0.0.1:${port}`;
+    const server = spawn(process.execPath, ['server/server.js'], {
+      cwd: process.cwd(),
+      env: { ...process.env, NODE_ENV: 'test', PORT: String(port), BIND_HOST: '127.0.0.1', BUP_DB_PATH: path.join(directory, 'test.db'), BUP_SEED_DEMO: '1' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let output = '', context;
+    server.stdout.on('data', data => { output += data; });
+    server.stderr.on('data', data => { output += data; });
+    server.on('error', error => { output += error.message; });
+    try {
+      let ready = false;
+      for (let attempt = 0; attempt < 80; attempt++) {
+        try { if ((await fetch(baseURL + '/api/health')).ok) { ready = true; break; } } catch {}
+        if (server.exitCode !== null) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (!ready) throw new Error('Isolated test server did not start: ' + output.slice(-3000));
+      context = await browser.newContext({ baseURL, viewport, storageState: { cookies: [], origins: [] } });
+      const page = await context.newPage();
+      const guard = captureRuntimeFailures(page);
+      await waitForApp(page);
+      await openIdentity(page);
+      await page.locator('#showRegistration').click();
+      const email = `transition-${Date.now()}@example.test`, password = 'Sicheres-Testpasswort-2026';
+      await page.locator('#registerName').fill('Kontowechsel QA');
+      await page.locator('#registerEmail').fill(email);
+      await page.locator('#registerPassword').fill(password);
+      await page.locator('#register').click();
+      await expect(page.locator('#userName')).toHaveText('Kontowechsel QA');
+      if (await page.locator('.app').evaluate(el => el.classList.contains('menu-open'))) await closeMobileDrawer(page);
+      await openCreation(page, 'community');
+      await fillObjectForm(page, 'community', `Private Übergabe ${Date.now()}`);
+      await page.locator('#formVisibility').selectOption('private');
+      await page.locator('#saveCreate').click();
+      await expect(page.locator('#community-space')).toHaveClass(/active/);
+      const gear = page.locator('[data-ctab="admin"]');
+      await expect(gear).toBeVisible();
+      await gear.click();
+      await page.locator('[data-admin-jump="rights"]').click();
+      await expect(page.locator('[data-permission-box]')).toContainText('Personen & Rollen');
+      await assertNoHorizontalOverflow(page);
+      await openIdentity(page);
+      await page.locator('#logout').click();
+      await expect(page.locator('#userName')).toHaveText('Nicht angemeldet');
+      await expect(page.locator('#home')).toHaveClass(/active/);
+      await expect(page.locator('#communitySpaceContent')).toBeEmpty();
+      await expect(page.locator('#modalContent')).toBeEmpty();
+      expect(await page.evaluate(() => location.hash)).toBe('');
+      await openIdentity(page);
+      await page.locator('#loginEmail').fill(email);
+      const input = page.locator('#loginPassword');
+      await input.focus();
+      await input.press('ControlOrMeta+A');
+      await input.press('Backspace');
+      await expect(input).toHaveValue('');
+      await input.fill(password);
+      await input.press('Enter');
+      await expect(page.locator('#userName')).toHaveText('Kontowechsel QA');
+      await expect(page.locator('#home')).toHaveClass(/active/);
+      await expect(page.locator('#communitySpaceContent')).toBeEmpty();
+      guard.assertClean();
+    } finally {
+      try { if (context) await context.close(); }
+      finally {
+        if (server.exitCode === null) {
+          server.kill('SIGTERM');
+          await new Promise(resolve => {
+            const timer = setTimeout(() => { server.kill('SIGKILL'); resolve(); }, 2500);
+            server.once('exit', () => { clearTimeout(timer); resolve(); });
+          });
+        }
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  });
+};
