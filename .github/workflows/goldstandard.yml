@@ -1,8 +1,11 @@
 name: PartiUp Goldstandard
 
 on:
-  pull_request:
+  # Each merge result on main is tested again (W8, 2026-10-26); stacked PRs targeting
+  # another PR branch are tested too. The release job below still only runs on dispatch.
+  push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
     inputs:
       release:
