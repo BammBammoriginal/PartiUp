@@ -32,7 +32,7 @@ async function startIsolatedServer(prefix) {
   }
 
   for (let attempt = 0; attempt < 80; attempt++) {
-    try { if ((await fetch(baseURL + '/api/health')).ok) return { baseURL, stop }; } catch {}
+    try { if ((await fetch(baseURL + '/api/health')).ok) return { baseURL, dbPath: path.join(directory, 'test.db'), stop }; } catch {}
     if (server.exitCode !== null) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
