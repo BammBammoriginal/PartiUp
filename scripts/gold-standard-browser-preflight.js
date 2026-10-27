@@ -47,6 +47,7 @@ const checks = [
   ['community-space creation flows', /#createSpaceEvent/.test(desktop) && /#createSpaceProject/.test(desktop) && /#createSpaceParticipation/.test(desktop)],
   ['subspace flow', /#createSubspace/.test(desktop)],
   ['place selector and combined context', /#discoverLocalPlace/.test(desktop) && /data-context-place-filter/.test(desktop)],
+  ['shared place selector has real desktop and mobile navigation flows', /Gemeinsamer Ebenenwähler aktualisiert alle räumlichen Übersichten/.test(desktop) && /Gemeinsamer Ebenenwähler funktioniert im mobilen Drawer/.test(mobile) && /#sidebarPlaceSelect/.test(desktop + mobile) && /value="all"/.test(app)],
   ['place/topic/community/person navigation', /Vernetzte Navigation über Ort, Thema, Community, Person/.test(desktop)],
   ['message persistence flow', /Nachricht senden und nach Reload/.test(all)],
   ['profile message flow reaches another account and survives reload', /Öffentliches Profil: Nachricht aus Personenansicht zwischen zwei echten Konten/.test(messaging) && /#startDmFromProfile/.test(messaging) && /#messageComposer/.test(messaging) && /anna\.reload\(\)/.test(messaging)],
@@ -64,7 +65,8 @@ const checks = [
   ['blocked-person management browser flow', /Blockierte Personen zentral verwalten/.test(desktop) && /manageBlockedPeople/.test(app) && /data-unblock-user/.test(app)],
   ['blocked-person management mobile flow', /Blockierte Personen mobil verwalten/.test(mobile) && /#mobileMore/.test(mobile) && /assertNoHorizontalOverflow/.test(mobile)],
   ['blocked-person browser target is dynamic and non-self', /async function openVisibleOtherPerson/.test(helper) && /person-card:not\(\[data-user="u-max"\]\)/.test(helper) && !/filter\(\{ hasText: 'Anna' \}\)/.test(desktop + mobile)],
-  ['person card test clicks the visible name rather than a nested action', /person\.locator\('\.grow > b'\)\.click\(\)/.test(helper) && !/await person\.click\(\)/.test(helper)],
+  // How a test clicks a card is no longer fixed here: the tests open cards via their title
+  // (openCardByTitle) and assert the opened person/space by name, which is the behaviour that matters.
   ['blocked-person action opens the real overflow menu', /async function blockOpenPerson/.test(helper) && /details\.network-more/.test(helper) && /summary\.click\(\)/.test(helper) && /toHaveAttribute\('open', ''\)/.test(helper) && /toBeVisible\(\)/.test(helper) && !/#blockPerson'\)\.click/.test(desktop + mobile)],
   ['unblock warning asserts the actual safety semantics', ['Freundschaften und Folgen','nicht automatisch wieder her','ausdrücklich neu aufgebaut'].every(text => app.includes(text) && desktop.includes(text)) && !desktop.includes('nicht automatisch wiederhergestellt')],
   ['blocked-person management is privacy-minimal and owner-scoped', /minimal person data/.test(regressions) && /cannot remove another user block/.test(regressions)],

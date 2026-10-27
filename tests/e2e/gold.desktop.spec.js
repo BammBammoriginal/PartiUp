@@ -186,6 +186,82 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     await expect(page.locator('#topic-grid .topic-detail')).toBeVisible();
   });
 
+  test('Gemeinsamer Ebenenwähler aktualisiert alle räumlichen Übersichten ohne private Chats zu filtern', async ({ page }) => {
+    await go(page, 'events');
+    const events = page.locator('#events [data-shared-place-select="events"]');
+    await expect(events).toBeVisible();
+    await expect(events.locator('option[value="all"]')).toHaveText('Alle Ebenen');
+    await expect(page.locator('#events-list')).toContainText('Repair-Café');
+    await events.selectOption('de');
+    await expect(page.locator('#events-list')).toContainText('Repair-Café');
+    await expect(page.locator('#events-list')).toContainText('Bundesweiter Aktionstag Fahrrad');
+    await expect(page.locator('#sidebarPlaceSelect')).toHaveValue('de');
+
+    await go(page, 'participation');
+    await expect(page.locator('#participation [data-shared-place-select]')).toHaveValue('de');
+    await expect(page.locator('#participation-list')).toContainText('Bundestag: Mobilitätsdatengesetz');
+    await page.locator('#participation [data-shared-place-select]').selectOption('nue');
+    await expect(page.locator('#participation-list')).not.toContainText('Bundestag: Mobilitätsdatengesetz');
+    await go(page, 'projects');
+    await expect(page.locator('#projects [data-shared-place-select]')).toHaveValue('nue');
+    await expect(page.locator('#projects-list')).not.toContainText('Sicherer Radweg Bahnhof');
+    await go(page, 'topics');
+    await expect(page.locator('#topic-grid')).not.toContainText('Kultur');
+    await go(page, 'people');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('nue');
+    await page.locator('#people [data-shared-place-select]').selectOption('all');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('all');
+    await expect(page.locator('#people-list')).toContainText('Anna');
+    await page.reload();
+    await go(page, 'people');
+    await expect(page.locator('#people [data-shared-place-select]')).toHaveValue('all');
+    await go(page, 'communities');
+    await expect(page.locator('#communities-list')).toContainText('Deutscher Sportbund');
+    await go(page, 'places');
+    await expect(page.locator('#place-results')).toContainText('Deutscher Sportbund');
+    await expect(page.locator('#place-results')).toContainText('Repair-Café');
+    await go(page, 'messages');
+    await expect(page.locator('#createConversation')).toBeVisible();
+    await expect(page.locator('#messages [data-shared-place-select]')).toHaveCount(0);
+  });
+
+  test('Sichtbare Personen ohne freigegebenen Ort bleiben im Ortskontext auffindbar, ohne Ortszuschreibung', async ({ browser }) => {
+    // The demo identities are public; this scenario sets its own precondition on an isolated server:
+    // Lisa (seeded in Erlangen) hides her place, Anna keeps hers public.
+    const isolated = await startIsolatedServer('undisclosed-place');
+    let context;
+    try {
+      const fixture = new (require('better-sqlite3'))(isolated.dbPath);
+      try { fixture.prepare("UPDATE user_preferences SET place_visibility='private' WHERE user_id='u-lisa'").run(); }
+      finally { fixture.close(); }
+      context = await browser.newContext({ baseURL: isolated.baseURL, viewport: { width: 1440, height: 1000 }, storageState: { cookies: [], origins: [] } });
+      const max = await context.newPage();
+      await waitForApp(max);
+      await openIdentity(max);
+      await max.locator('#loginEmail').fill('max@bottomupparti.local');
+      await max.locator('#loginPassword').fill('demo123');
+      await max.locator('#login').click();
+      await expect(max.locator('#userName')).toHaveText('Max');
+
+      await go(max, 'people');
+      await max.locator('#people [data-shared-place-select]').selectOption('nue');
+      const list = max.locator('#people-list');
+      await expect(list).toContainText('Weitere sichtbare Profile ohne freigegebenen Ort');
+      const lisa = list.locator('.person-card[data-user="u-lisa"]');
+      await expect(lisa).toBeVisible();
+      await expect(lisa).not.toContainText('Erlangen');
+      await expect(lisa).not.toContainText('Nürnberg');
+      await expect(list.locator('.person-card[data-user="u-anna"]')).toHaveCount(0);
+
+      await max.locator('#people [data-shared-place-select]').selectOption('erl');
+      await expect(list.locator('.person-card[data-user="u-anna"]')).toBeVisible();
+      await expect(list.locator('.person-card[data-user="u-anna"]')).toContainText('Erlangen');
+    } finally {
+      try { if (context) await context.close(); }
+      finally { await isolated.stop(); }
+    }
+  });
+
   test('Vernetzte Navigation über Ort, Thema, Community, Person und Hauptlisten', async ({ page }) => {
     await go(page, 'places');
     await page.locator('[data-place]').first().click();

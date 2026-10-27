@@ -12,7 +12,7 @@ const checks=[
  ['Nearby preview switches context before opening',app.includes("openDiscoverPreview(type,id,sourceTab){if(sourceTab==='local'||sourceTab==='topics')setDiscoverTab(sourceTab);navigateConnection(type,id)")],
  ['Topic chip lands in Discover topics tab',app.includes("setDiscoverTab('topics');const s=$('#search')")],
  ['Local tab highlights explicit place selector',html.includes('id="discoverLocalContext"')&&html.includes('id="discoverLocalPlace"')&&app.includes('renderLocalSelector()')],
- ['Local place selector updates existing place context',app.includes('context.placeId=sel.value')&&app.includes('renderPlaces();renderDiscover()')],
+ ['Local place selector updates all spatial views through the shared context',app.includes('sel.onchange=()=>applySharedPlaceContext(sel.value)')&&app.includes('renderPlaces();renderTopics();renderDiscover();filterCommunities();renderPeople();renderEvents();renderProjects();renderParticipation();renderSharedPlaceContexts()')],
  ['Fediverse remains isolated to its tab',app.includes("$('#discoverCore').hidden=fed")&&app.includes("$('#fediverseDiscover').hidden=!fed")],
  ['Fediverse learn-more is secondary',app.includes('class="fediverse-learn-more"')&&css.includes('.fediverse-learn-more{border:0;background:transparent')],
  ['Discover cards are keyboard operable',app.includes("if(e.key==='Enter'||e.key===' ')")&&css.includes('.discover-preview-card:focus-visible')],
