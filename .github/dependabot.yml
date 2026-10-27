@@ -21,3 +21,8 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
+    # Major upgrades are never taken blindly (AGENTS.md); they are planned as their own task.
+    # Security updates are not affected by this rule.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
