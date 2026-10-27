@@ -158,3 +158,20 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
 - Bewusst offen gelassen: `/api/federation/diagnostics` zeigt öffentlich technische Grenzwerte (Zeitlimits, Größen) und die eigene Basis-URL. Das braucht der Live-Selbsttest; Geheimnisse sind nicht enthalten.
 - Bekannte Einschränkung: Die Liste begrenzt vor dem Filtern auf 100 Einträge und kann dadurch weniger anzeigen. Die Oberfläche nutzt die Liste nicht.
 - Nächster Schritt: Prüfung von Logout, Sitzungen und Nutzerwechsel.
+
+### 2026-10-27 – Prüfung Logout, Sitzungen und Nutzerwechsel
+- Verantwortlich / Agent: Claude Code (Prüfung und Tests), Freigabe offen.
+- Ist-Zustand, ohne Befund:
+  - Sitzungen werden nur als SHA-256-Hash gespeichert.
+  - Das Cookie ist `HttpOnly`, `SameSite=Strict` und in Produktion `Secure`.
+  - Der Login erneuert Sitzung und Sicherheits-Token und löscht die vorherige Sitzung im selben Browser.
+  - Der Logout löscht die Sitzung serverseitig und braucht das Sicherheits-Token.
+  - Der Ablauf (7 Tage) wird serverseitig geprüft.
+  - API-Antworten sind `no-store`.
+  - Kontolöschung entfernt alle Sitzungen.
+  - Die Oberfläche bricht beim Logout laufende Anfragen ab und leert private Ansichten (bestehender Gold-Test „Kontowechsel“).
+- Neu: `tests/integration/session-lifecycle.integration.js` (39 Prüfungen, in `qa:security`). Nach Logout, nach Nutzerwechsel und nach Ablauf öffnet ein altes Cookie weder Benachrichtigungen, Chats, Einstellungen, Export, private Medien noch Schreibaktionen. Logout ohne Sicherheits-Token wird abgelehnt. Logout beendet nur das aktuelle Gerät. Gegenproben: Ohne serverseitiges Löschen beim Logout bzw. ohne Sitzungswechsel beim Login wird der Test rot.
+- Beobachtungen ohne Handlungsbedarf, Entscheidung bei Bedarf:
+  - (a) Ein zweiter offener Tab zeigt nach dem Logout die bereits geladenen Inhalte, bis er die nächste Anfrage stellt. Diese wird abgelehnt. Eine tabübergreifende Abmeldung wäre eine neue Funktion.
+  - (b) Es gibt kein „Überall abmelden“ und keine Passwortänderung. Beides wird mit einer künftigen Konto- bzw. Sperrfunktion relevant; dann müssen alle Sitzungen der Person enden.
+  - (c) `currentUserId` prüft den Kontostatus nicht selbst. Das ist heute unschädlich, weil nur die Kontolöschung den Status ändert und dabei alle Sitzungen löscht. Mit einer künftigen Sperrfunktion muss es nachgezogen werden.
