@@ -143,3 +143,9 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
 - **W3 entschieden:** Sicherheit und der Weg zu PoC und MVP haben Vorrang. Etappe 1 der Übergabe-Roadmap (Bestandsaufnahme, Issue #23) läuft parallel; ab Etappe 2 werden bevorzugt Codepfade modernisiert, die für PoC oder MVP ohnehin angefasst werden.
 - **W6 entschieden:** PR #20 ist als Sammel-PR einmalig gebilligt. Künftig wird vor jedem PR geprüft, ob eng verwandte, risikoarme Änderungen gebündelt werden, um Aufwand und Token zu sparen. Getrennt bleiben Änderungen, die Funktionen oder Abläufe stören könnten oder manuell geprüft werden müssen. Die Grundregel bleibt bestehen.
 - **W8 entschieden und umgesetzt (PR #20, Commit `8fe824a`):** CI läuft zusätzlich nach jedem Merge auf `main` und für gestapelte PRs. Der Signier-Job läuft weiterhin nur bei manuellem Start mit freigegebenem Commit.
+
+### 2026-10-27 – Keine Tests über Tests
+- Verantwortlich / Agent: Projektverantwortlicher (Entscheidung „solche Tests und Regeln für die Zukunft anpassen“), Claude Code (Umsetzung).
+- Anlass: Beim Nachziehen von PR #8 blockierte eine Preflight-Prüfung, die den Klick-Selektor im Gold-Test als Text vorschrieb, den robusteren Helfer `openCardByTitle`.
+- Entscheidung: Preflights legen nicht fest, wie ein Test bedient; erlaubt ist nur der Inventarschutz „Pflicht-Test existiert“. Regel in `AGENTS.md` §6 und `CLAUDE.md`.
+- Bestand am 2026-10-27 (Preflights, die Testdateien als Text lesen; Zahl der Zeichenkettenprüfungen in der Datei): `gold-standard-browser-preflight.js` 60, `chat-image-preview-preflight.js` 16, `privacy-data-lifecycle-preflight.js` 15, `qa-static-preflight.js` 13, `security-integration-preflight.js` 10, `sidebar-scope-preflight.js` 8, `mobile-nav-qa-preflight.js` 6. Abbau schrittweise; Sicherheits- und Privacy-Aussagen bleiben dabei mindestens gleich streng.
