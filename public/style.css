@@ -211,6 +211,7 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{min-width:320px;o
 .network-more summary::-webkit-details-marker{display:none}
 .network-more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;display:grid;gap:4px;min-width:150px;padding:6px;border:1px solid var(--line,#d9dee8);border-radius:10px;background:#fff;box-shadow:0 10px 30px rgba(20,30,35,.12)}
 .network-more-menu button{width:100%;text-align:left}
+.join-pending summary{min-height:40px;display:flex;align-items:center;padding:8px 14px;white-space:nowrap;font-weight:700}
 @media(max-width:700px){
  .network-summary{grid-template-columns:1fr}
  .friend-card{grid-template-columns:auto minmax(0,1fr);position:relative}
