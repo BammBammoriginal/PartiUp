@@ -234,3 +234,25 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
 - Nachweis:
   - `tests/integration/live-updates.integration.js` (21 Prüfungen, in `qa:security`): anonym 401; Stempel ändert sich bei neuer Unterhaltung, Nachricht, Reaktion, Entfernen der Reaktion und Löschung, aber nicht für Außenstehende und nicht durch eigenes Lesen; Lesen setzt Ungelesen und Chat-Benachrichtigungen zurück; nach Logout 401 auch mit kopiertem Cookie. Vor der Korrektur rot.
   - Browser-Test `live-chat.gold.desktop/mobile` mit zwei Konten auf eigenem Server und Playwright-Uhr (das Intervall wird vorgespult, nicht abgewartet): neue Unterhaltung, Nachricht, Reaktion und Löschung erscheinen ohne Neuladen, der Entwurf bleibt, die Antwort erscheint beim Gegenüber, der Glocken-Zähler steigt. Gegen den vorherigen Stand rot („neue Unterhaltung erscheint nicht“).
+
+### 2026-10-28 – Stabilitäts- und UX-Paket, Paket C: Benachrichtigungs- und Feed-Ziele
+
+- Bestätigte Ursachen:
+  - (1) Benachrichtigungen zu Kommentaren (`post`) und Nachrichten (`conversation`) hatten im Client kein Ziel; Antippen markierte sie nur als gelesen.
+  - (2) Kommentar-Benachrichtigungen speicherten nur den Beitrag, nicht den Kommentar.
+  - (3) Es gab keinen Permalink für Beiträge oder Kommentare und keine Server-Abfrage, wo ein Inhalt liegt. Feed-Karten auf „Meine Startseite“ führten deshalb nirgendwohin.
+- Umsetzung:
+  - `GET /api/content/:type/:id/location` für `post` und `comment` liefert nur Space-, Beitrags- und Kommentar-ID. Es nutzt die bestehende Prüfung `reportTargetSnapshot` (Space-Sichtbarkeit, ausgeblendete oder entfernte Inhalte); keine zweite Rechtelogik. Unbekannt, ausgeblendet und nicht sichtbar antworten gleich (404).
+  - Neue Kommentar-Benachrichtigungen zeigen auf den Kommentar (`entity_type='comment'`). Ältere mit `post` öffnen den Beitrag.
+  - Permalinks `#post/<id>` und `#comment/<id>` öffnen den Space-Feed, scrollen zum Inhalt, markieren ihn dezent und setzen den Fokus. Sie funktionieren nach Neuladen sowie mit Zurück und Vor.
+  - Feed auf „Meine Startseite“: Die Uhrzeit ist der Link zum Beitrag (Tastatur, beschrifteter Name). Die übrige Kartenfläche öffnet ihn per Maus oder Touch, außer auf Bedienelementen in der Karte; keine verschachtelten Buttons.
+  - Chat-Benachrichtigungen öffnen „Chats“ mit der Unterhaltung, unten bei der neuesten Nachricht.
+  - Ist ein Inhalt nicht mehr da oder nicht sichtbar, erklärt eine Meldung das.
+- Bewusst nicht geändert bzw. offen:
+  - Benachrichtigungen speichern keine Nachrichten-ID; die Unterhaltung öffnet bei der neuesten Nachricht, eine einzelne ältere wird nicht hervorgehoben.
+  - Ist das Feed-Modul eines Spaces abgeschaltet, kommt die Meldung „hier nicht mehr sichtbar“.
+  - Fediverse-Einträge bekommen keinen neuen Link; ihre Herkunft bleibt wie bisher sichtbar.
+  - Unterhaltungen sind auf die neuesten 300 Nachrichten begrenzt (bestehend); ältere werden nicht nachgeladen.
+- Nachweis:
+  - `tests/integration/content-location.integration.js` (15 Prüfungen, in `qa:security`): Kommentar-Benachrichtigung zeigt auf den Kommentar; öffentlicher Beitrag für alle auflösbar; Antwort enthält nur IDs; geschlossener Space für Anonyme und Nichtmitglieder 404 mit gleichem Text wie unbekannt; ausgeblendeter Kommentar und entfernter Beitrag 404. Vor der Korrektur rot.
+  - Browser-Test `content-links.gold.desktop/mobile`: Kommentar-Benachrichtigung öffnet den Kommentar im sichtbaren Bereich mit Fokus, auch nach Neuladen; Feed-Link öffnet den Beitrag; ungültiger Link meldet sich verständlich; Chat-Benachrichtigung öffnet die Unterhaltung. Vor der Korrektur rot (Benachrichtigung blieb offen). Eine Testkorrektur: `waitForApp` lädt `/` und verwarf den Hash; nach dem Neuladen wird deshalb direkt auf den Kommentar gewartet.
