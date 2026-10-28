@@ -234,6 +234,9 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{min-width:320px;o
 @keyframes follow-pop{0%{transform:scale(.72) rotate(-12deg)}55%{transform:scale(1.28) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
 .person-primary-actions{align-items:center}
 .friendship-state{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .7rem;border:1px solid var(--line,#d9dee8);border-radius:999px;background:var(--surface-soft,#f6f8f7);font-size:.86rem;font-weight:650}
+.content-target{outline:3px solid var(--accent);outline-offset:4px;border-radius:12px}
+.unified-feed-item.local[data-feed-post]{cursor:pointer}
+.feed-permalink{color:inherit}
 @media (prefers-reduced-motion:reduce){.follow-button{transition:none}.follow-button.follow-pop .follow-star{animation:none}}
 @media(max-width:700px){.follow-button{min-height:44px}.follow-button.compact{margin:.3rem 0}.person-primary-actions{display:flex!important;flex-wrap:wrap}.person-primary-actions>*{min-width:0}.person-primary-actions .follow-button,.person-primary-actions>#startDmFromProfile{flex:1 1 140px}.friendship-state{flex:1 1 100%}}
 
