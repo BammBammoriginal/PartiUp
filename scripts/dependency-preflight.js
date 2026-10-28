@@ -5,7 +5,7 @@ const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const expected={
   dependencies:{'ipaddr.js':'1.9.1','better-sqlite3':'13.0.3','express':'4.22.3','multer':'2.5.0','sharp':'0.35.5'},
   devDependencies:{'@playwright/test':'1.64.1'},
-  overrides:{'body-parser':'1.20.9','qs':'6.16.0'}
+  overrides:{'body-parser':'1.20.9','qs':'6.16.1'}
 };
 let failed=0;
 for(const [section,items] of Object.entries(expected)){
