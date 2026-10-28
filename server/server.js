@@ -502,6 +502,8 @@ app.get('/api/live',requireUser,(req,res)=>{const u=req.userId,m=db.prepare(`SEL
   res.setHeader('Cache-Control','private, no-store');res.json({notification_count:db.prepare('SELECT COUNT(*) n FROM notifications WHERE user_id=? AND read_at IS NULL').get(u).n,message_unread:Number(m.unread||0),messages_stamp:stamp})});
 app.post('/api/notifications/read',requireUser,(req,res)=>{const id=String(req.body?.id||'');if(id)db.prepare("UPDATE notifications SET read_at=COALESCE(read_at,CURRENT_TIMESTAMP) WHERE id=? AND user_id=?").run(id,req.userId);else db.prepare("UPDATE notifications SET read_at=COALESCE(read_at,CURRENT_TIMESTAMP) WHERE user_id=?").run(req.userId);res.json({ok:true})});
 
+// Followed Spaces with name and kind, limited to what the person can still see.
+app.get('/api/follows/areas',requireUser,(req,res)=>{const f=followsForUser(req.userId),pick=(type,table,list)=>list.filter(x=>canViewScope(req.userId,type,x.id)).map(x=>{const r=db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(x.id);return r&&{id:r.id,name:r.name,icon:r.icon||'',kind:r.type||'',parent_id:r.parent_id||null,date_label:r.date_label||''}}).filter(Boolean);res.json({communities:pick('community','communities',f.communities),projects:pick('project','projects',f.projects),events:pick('event','events',f.events),participation:pick('participation','participation',f.participation)})});
 app.post('/api/follows',requireUser,(req,res)=>{
   const type=String(req.body?.target_type||''), id=String(req.body?.target_id||''), level=String(req.body?.notification_level||'feed');
   if(!['community','place','topic','person','event','project','participation'].includes(type))return res.status(400).json({error:'Ungültiges Folge-Ziel.'});
