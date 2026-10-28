@@ -91,6 +91,25 @@ const AP_PATH={user:'/ap/actors/users/',community:'/ap/actors/spaces/',post:'/ap
     // ok also depends on the person's own "discoverable" choice; here only reachability is asserted.
     check('discovery-check still answers for an opted-in person',ok.status===200&&ok.data?.userId==='u-max'&&ok.data?.checks?.handleMapped===true,JSON.stringify(ok.data));
 
+    // Received Fediverse posts are only shown where the receiving Space is visible.
+    const anna=await login('anna@bottomupparti.local');
+    const insertRemote=sql.prepare("INSERT INTO federation_remote_objects(object_uri,object_type,actor_uri,origin_host,content_text,raw_json) VALUES (?,'Note','https://remote.example/users/r','remote.example',?,'{}')");
+    const linkRemote=sql.prepare("INSERT INTO federation_space_remote_objects(local_space_id,object_uri,relation_kind) VALUES (?,?,'thread')");
+    const insertMedia=sql.prepare("INSERT INTO federation_remote_media(id,object_uri,media_url,media_type,kind) VALUES (?,?,'https://media.invalid/x.png','image/png','image')");
+    insertRemote.run('https://remote.example/notes/closed','REMOTE_IN_CLOSED_SPACE');linkRemote.run(closed.data.id,'https://remote.example/notes/closed');insertMedia.run('rm-closed','https://remote.example/notes/closed');
+    insertRemote.run('https://remote.example/notes/open','REMOTE_IN_PUBLIC_SPACE');linkRemote.run(open.data.id,'https://remote.example/notes/open');insertMedia.run('rm-open','https://remote.example/notes/open');
+    const remoteText=async j=>(await req(j,'GET','/api/federation/remote-objects')).text;
+    const anonRemote=await remoteText(anon), annaRemote=await remoteText(anna), maxRemote=await remoteText(max);
+    check('Anonymous visitors do not see posts received by a closed Space',!anonRemote.includes('REMOTE_IN_CLOSED_SPACE'));
+    check('Non-members do not see posts received by a closed Space',!annaRemote.includes('REMOTE_IN_CLOSED_SPACE'));
+    check('Posts received by a public Space stay listed',anonRemote.includes('REMOTE_IN_PUBLIC_SPACE')&&annaRemote.includes('REMOTE_IN_PUBLIC_SPACE'));
+    check('Members still see posts received by their closed Space',maxRemote.includes('REMOTE_IN_CLOSED_SPACE'));
+    await status('Images of posts received by a closed Space are not served anonymously',req(anon,'GET','/api/federation-media/rm-closed'),404);
+    await status('Images of posts received by a closed Space are not served to non-members',req(anna,'GET','/api/federation-media/rm-closed'),404);
+    const openMedia=await req(anon,'GET','/api/federation-media/rm-open');
+    // The test host does not resolve, so a visible image ends in 502 instead of 404.
+    check('Images of posts received by a public Space are still proxied',openMedia.status===502,`got ${openMedia.status}`);
+
     console.log(`\nFederation exposure integration: ${passed.length}/${passed.length} checks passed.`);
   }catch(error){
     console.error(`✗ ${error.message}`);

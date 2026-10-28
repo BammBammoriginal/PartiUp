@@ -378,11 +378,13 @@ app.get('/api/connectors/framework',(req,res)=>res.json(connectorFrameworkSnapsh
 app.get('/api/integrations/catalog',(req,res)=>res.json({integrations:integrationCatalog()}));
 app.get('/api/integrations/framework',(req,res)=>res.json(integrationFrameworkSnapshot()));
 app.get('/api/federation/media-model',(req,res)=>res.json(mediaFederationSnapshot()));
+// A received Fediverse post is shown only where at least one receiving Space is visible to the viewer.
+function remoteObjectVisible(objectUri,userId){return db.prepare(`SELECT sro.local_space_id FROM federation_space_remote_objects sro JOIN federation_remote_objects ro ON ro.object_uri=sro.object_uri WHERE sro.object_uri=? AND ro.lifecycle_state='active' AND ro.moderation_state='active'`).all(objectUri).some(r=>canViewScope(userId,'community',r.local_space_id));}
 app.get('/api/federation-media/:id',federationMediaLimit,async(req,res)=>{
   try{
     const row=db.prepare(`SELECT id,object_uri,media_url,media_type,kind,name FROM federation_remote_media WHERE id=?`).get(String(req.params.id||''));
     if(!row||row.kind!=='image')return res.status(404).end();
-    const visibleRemote=db.prepare(`SELECT 1 FROM federation_remote_objects WHERE object_uri=? AND lifecycle_state='active' AND moderation_state='active'`).get(row.object_uri);
+    const visibleRemote=remoteObjectVisible(row.object_uri,currentUserId(req));
     const visibleEvent=db.prepare(`SELECT 1 FROM events WHERE remote_uri=? AND source='external' AND federation_lifecycle_state='active' AND federation_moderation_state='active' AND visibility='public'`).get(row.object_uri);
     if(!visibleRemote&&!visibleEvent)return res.status(404).end();
     const fetched=await safeHttpsRequest(row.media_url,{headers:{Accept:'image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.8,*/*;q=0.1'},maxBytes:8*1024*1024});
@@ -884,7 +886,7 @@ app.delete('/api/comments/:id',requireUser,(req,res)=>{
   const c=db.prepare('SELECT * FROM comments WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Kommentar nicht gefunden.'});if(c.author_id!==req.userId)return res.status(403).json({error:'Nur der Autor darf den Kommentar löschen.'});let activity=null;try{if(baseUrl()&&noteForLocalComment(db,c.id))activity=deleteActivityForObject(req.userId,`${baseUrl()}/ap/objects/comments/${encodeURIComponent(c.id)}`)}catch{}db.prepare('DELETE FROM comments WHERE id=?').run(c.id);let federated=0;try{if(activity)federated=queueActivityForFollowers(db,req.userId,activity)}catch(e){console.warn('Comment delete federation:',e.message)}res.json({ok:true,federatedDeliveries:federated});
 });
 app.get('/api/federation/remote-objects',(req,res)=>{
-  const rows=db.prepare(`SELECT object_uri,object_type,actor_uri,origin_host,in_reply_to,content_text,published_at,lifecycle_state,moderation_state,first_seen_at,updated_at FROM federation_remote_objects WHERE lifecycle_state='active' AND moderation_state='active' ORDER BY datetime(first_seen_at) DESC LIMIT 100`).all();res.json(rows);
+  const rows=db.prepare(`SELECT object_uri,object_type,actor_uri,origin_host,in_reply_to,content_text,published_at,lifecycle_state,moderation_state,first_seen_at,updated_at FROM federation_remote_objects WHERE lifecycle_state='active' AND moderation_state='active' ORDER BY datetime(first_seen_at) DESC LIMIT 100`).all();const userId=currentUserId(req);res.json(rows.filter(r=>remoteObjectVisible(r.object_uri,userId)));
 });
 
 app.post('/api/communities/:id/polls',requireUser,(req,res)=>{

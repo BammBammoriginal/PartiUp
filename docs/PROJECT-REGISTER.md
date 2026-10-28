@@ -149,3 +149,29 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
 - Anlass: Beim Nachziehen von PR #8 blockierte eine Preflight-Prüfung, die den Klick-Selektor im Gold-Test als Text vorschrieb, den robusteren Helfer `openCardByTitle`.
 - Entscheidung: Preflights legen nicht fest, wie ein Test bedient; erlaubt ist nur der Inventarschutz „Pflicht-Test existiert“. Regel in `AGENTS.md` §6 und `CLAUDE.md`.
 - Bestand am 2026-10-27 (Preflights, die Testdateien als Text lesen; Zahl der Zeichenkettenprüfungen in der Datei): `gold-standard-browser-preflight.js` 60, `chat-image-preview-preflight.js` 16, `privacy-data-lifecycle-preflight.js` 15, `qa-static-preflight.js` 13, `security-integration-preflight.js` 10, `sidebar-scope-preflight.js` 8, `mobile-nav-qa-preflight.js` 6. Abbau schrittweise; Sicherheits- und Privacy-Aussagen bleiben dabei mindestens gleich streng.
+
+### 2026-10-27 – Endpunkt-Prüfung: empfangene Fediverse-Beiträge
+- Verantwortlich / Agent: Claude Code (Prüfung und Umsetzung), Freigabe offen.
+- Geprüft wurden die ohne Anmeldung erreichbaren Routen: WebFinger, ActivityPub-Akteure, Outboxen, Follower-Listen und Objekte, Diagnose, Governance, Kataloge, Detailansichten, Profil-Aktivität, Erweiterungen, Föderationsstatus, Medien-Proxy und Liste empfangener Fediverse-Beiträge.
+- **Befund (behoben):** `/api/federation/remote-objects` und der Bild-Proxy `/api/federation-media/:id` lieferten jedem anonymen Abruf alle empfangenen Fediverse-Beiträge und Bilder, auch solche, die nur ein geschlossener Space empfangen hatte. Damit ließ sich ablesen, wem ein geschlossener Space folgt. Korrektur: Ein empfangener Beitrag wird nur gezeigt bzw. sein Bild nur ausgeliefert, wenn mindestens ein empfangender Space für die betrachtende Person sichtbar ist. Regressionstest in `tests/integration/federation-exposure.integration.js`.
+- Ohne Befund: ActivityPub-Akteure nur mit Opt-in, Outboxen über die Föderationsentscheidung, Follower-Listen nur als Anzahl, Detailansichten über die Sichtbarkeitsfunktionen, Governance nur als Anzahl.
+- Bewusst offen gelassen: `/api/federation/diagnostics` zeigt öffentlich technische Grenzwerte (Zeitlimits, Größen) und die eigene Basis-URL. Das braucht der Live-Selbsttest; Geheimnisse sind nicht enthalten.
+- Bekannte Einschränkung: Die Liste begrenzt vor dem Filtern auf 100 Einträge und kann dadurch weniger anzeigen. Die Oberfläche nutzt die Liste nicht.
+- Nächster Schritt: Prüfung von Logout, Sitzungen und Nutzerwechsel.
+
+### 2026-10-27 – Prüfung Logout, Sitzungen und Nutzerwechsel
+- Verantwortlich / Agent: Claude Code (Prüfung und Tests), Freigabe offen.
+- Ist-Zustand, ohne Befund:
+  - Sitzungen werden nur als SHA-256-Hash gespeichert.
+  - Das Cookie ist `HttpOnly`, `SameSite=Strict` und in Produktion `Secure`.
+  - Der Login erneuert Sitzung und Sicherheits-Token und löscht die vorherige Sitzung im selben Browser.
+  - Der Logout löscht die Sitzung serverseitig und braucht das Sicherheits-Token.
+  - Der Ablauf (7 Tage) wird serverseitig geprüft.
+  - API-Antworten sind `no-store`.
+  - Kontolöschung entfernt alle Sitzungen.
+  - Die Oberfläche bricht beim Logout laufende Anfragen ab und leert private Ansichten (bestehender Gold-Test „Kontowechsel“).
+- Neu: `tests/integration/session-lifecycle.integration.js` (39 Prüfungen, in `qa:security`). Nach Logout, nach Nutzerwechsel und nach Ablauf öffnet ein altes Cookie weder Benachrichtigungen, Chats, Einstellungen, Export, private Medien noch Schreibaktionen. Logout ohne Sicherheits-Token wird abgelehnt. Logout beendet nur das aktuelle Gerät. Gegenproben: Ohne serverseitiges Löschen beim Logout bzw. ohne Sitzungswechsel beim Login wird der Test rot.
+- Beobachtungen ohne Handlungsbedarf, Entscheidung bei Bedarf:
+  - (a) Ein zweiter offener Tab zeigt nach dem Logout die bereits geladenen Inhalte, bis er die nächste Anfrage stellt. Diese wird abgelehnt. Eine tabübergreifende Abmeldung wäre eine neue Funktion.
+  - (b) Es gibt kein „Überall abmelden“ und keine Passwortänderung. Beides wird mit einer künftigen Konto- bzw. Sperrfunktion relevant; dann müssen alle Sitzungen der Person enden.
+  - (c) `currentUserId` prüft den Kontostatus nicht selbst. Das ist heute unschädlich, weil nur die Kontolöschung den Status ändert und dabei alle Sitzungen löscht. Mit einer künftigen Sperrfunktion muss es nachgezogen werden.
