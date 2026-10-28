@@ -218,3 +218,19 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
   - B: Nachrichten und Zähler ohne Neuladen.
   - C: Ziele für Nachrichten- und Kommentar-Benachrichtigungen, „Mein Feed“.
   - D: „Mein Netzwerk“, gefolgte Bereiche, Autorenlinks.
+
+### 2026-10-28 – Stabilitäts- und UX-Paket, Paket B: Live-Aktualisierung
+
+- Bestätigte Ursache: Der Server liefert neue Nachrichten, Reaktionen und Löschungen korrekt aus. Der Client hatte aber keinen einzigen Aktualisierungsweg (kein Polling, keine Server-Events). Unterhaltungen und Glocken-Zähler wurden nur beim Seitenwechsel oder Neuladen abgefragt. Reaktionen und Löschungen bauten zudem die ganze Unterhaltung neu auf und löschten dabei einen angefangenen Text.
+- Entscheidung: bedarfsgerechtes Polling statt Server-Sent Events oder WebSockets. Das passt zu Express/SQLite ohne zusätzliche Dauerverbindungen, Proxy-Einstellungen oder Zustand im Serverprozess; Rechte werden bei jeder Abfrage wie bei jedem anderen API-Aufruf geprüft.
+- Umsetzung:
+  - `GET /api/live` (nur angemeldet, `Cache-Control: no-store`): ungelesene Benachrichtigungen, ungelesene Nachrichten und ein undurchsichtiger Stempel (gekürzter SHA-256) über die eigenen Unterhaltungen (neue Unterhaltung, Nachricht, Löschung, Reaktion). Keine Inhalte, keine IDs, nichts über fremde Unterhaltungen.
+  - Der Client fragt nur bei sichtbarem Tab: alle 5 s auf „Chats“, sonst alle 15 s, sofort beim Zurückkehren in den Tab und nach Netzwerkwiederkehr. Nur bei geändertem Stempel lädt er Liste und offene Unterhaltung nach. Die Nachrichten werden an Ort und Stelle ersetzt: Wer unten liest, bleibt unten, sonst bleibt die Position. Der Entwurf im Eingabefeld bleibt erhalten.
+  - Logout, Kontowechsel oder HTTP 401 beenden das Polling; laufende Antworten eines alten Kontos werden verworfen (bestehender `accountGeneration`-Schutz).
+  - Lesen einer Unterhaltung markiert auch ihre Chat-Benachrichtigungen als gelesen, damit Glocke und Chat übereinstimmen.
+  - Last: eine kleine Leseabfrage pro Tab alle 5–15 s, deutlich unter dem bestehenden Lese-Limit (1.200/min je IP); kein neuer Speicher im Server.
+- Space-Ausprägungen: gilt für Direkt-, Gruppen- und Kontextchats gleichermaßen (gleiche Tabellen und Routen).
+- Bewusst nicht geändert: keine eigene Zähler-Plakette am Chat-Menüpunkt (neue Oberfläche, nicht verlangt); die Glocke zählt Chat-Benachrichtigungen wie bisher. Eine offene Benachrichtigungsliste aktualisiert sich nicht selbst, nur der Zähler.
+- Nachweis:
+  - `tests/integration/live-updates.integration.js` (21 Prüfungen, in `qa:security`): anonym 401; Stempel ändert sich bei neuer Unterhaltung, Nachricht, Reaktion, Entfernen der Reaktion und Löschung, aber nicht für Außenstehende und nicht durch eigenes Lesen; Lesen setzt Ungelesen und Chat-Benachrichtigungen zurück; nach Logout 401 auch mit kopiertem Cookie. Vor der Korrektur rot.
+  - Browser-Test `live-chat.gold.desktop/mobile` mit zwei Konten auf eigenem Server und Playwright-Uhr (das Intervall wird vorgespult, nicht abgewartet): neue Unterhaltung, Nachricht, Reaktion und Löschung erscheinen ohne Neuladen, der Entwurf bleibt, die Antwort erscheint beim Gegenüber, der Glocken-Zähler steigt. Gegen den vorherigen Stand rot („neue Unterhaltung erscheint nicht“).

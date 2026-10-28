@@ -3,8 +3,10 @@ const { waitForApp, openIdentity, closeMobileDrawer, captureRuntimeFailures, ass
 const { startIsolatedServer } = require('./isolated-server');
 
 // Two visible logins per run, so the scenario gets its own server and rate-limit counters.
-async function loginAs(context, email, name) {
+// clock: install Playwright's controllable clock first, so tests can fast-forward timers.
+async function loginAs(context, email, name, { clock = false } = {}) {
   const page = await context.newPage();
+  if (clock) await page.clock.install();
   const guard = captureRuntimeFailures(page);
   await waitForApp(page);
   await openIdentity(page);
@@ -16,7 +18,9 @@ async function loginAs(context, email, name) {
   return { page, guard };
 }
 
-module.exports = function registerJoinRequestFlow() {
+module.exports = registerJoinRequestFlow;
+module.exports.loginAs = loginAs;
+function registerJoinRequestFlow() {
   test.setTimeout(30_000);
   test('Beitrittsanfrage: anfragen, zurückziehen, aus der Benachrichtigung annehmen', async ({ browser, viewport }) => {
     const isolated = await startIsolatedServer('join-request');
@@ -71,4 +75,4 @@ module.exports = function registerJoinRequestFlow() {
       await isolated.stop();
     }
   });
-};
+}
