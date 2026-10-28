@@ -470,11 +470,15 @@ test.describe('Goldstandard Desktop: echte Nutzerabläufe', () => {
     const notice = page.locator('.notification-item.unread').filter({ hasText: 'Freundschaftsanfrage angenommen' });
     await expect(notice).toBeVisible();
     await expect(page.locator('#notificationCount')).toHaveText('1');
+    // A notification opens its subject: the list closes and the counter drops without a reload.
     await notice.click();
-    await expect(page.locator('.notification-item.unread')).toHaveCount(0);
+    await expect(page.locator('#modal')).not.toHaveClass(/show/);
     await expect(page.locator('#notificationCount')).toBeHidden();
-    await page.locator('#closeModal').click();
+    await expect(page.locator('#person-space')).toHaveClass(/active/);
     await expect(page.locator('.friendship-state')).toContainText('Befreundet');
+    await page.locator('#notificationButton').click();
+    await expect(page.locator('.notification-item.unread')).toHaveCount(0);
+    await page.locator('#closeModal').click();
   });
 
   test('Geschlossener Benachrichtigungsdialog bleibt zu, wenn die Liste verspätet nachlädt', async ({ browser }) => {
