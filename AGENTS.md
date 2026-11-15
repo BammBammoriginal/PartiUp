@@ -14,6 +14,11 @@ Diese Datei ist die gemeinsame Regelgrundlage für ChatGPT, Claude Code und mens
 
 ## 1. Produktziel und Zielgruppe (vorrangig)
 
+**Leitprinzip (Vorgabe vom 2026-11-15, steht über allem):** PartiUp will besser, schöner, praktischer und innovativer sein als andere Angebote, ohne die Sicherheit außer Acht zu lassen. Für jede Funktion, Aufgabe oder Herausforderung werden auf dem Weg die neuesten technischen Lösungen geprüft.
+- Arbeitsregel: Vor jeder Umsetzung werden aktuelle Standards, Bibliotheken und UX-Muster kurz recherchiert; der PR nennt die geprüften Optionen und die Wahl.
+- Sicherheits- und Privacy-Regeln bleiben unberührt. Innovativ heißt bessere Lösungen, nicht mehr Funktionen (die Vorgabe vom 2026-10-20 gilt weiter).
+- Entscheidungen trifft die projektverantwortliche Person: KI-Assistenten legen Optionen mit Empfehlung vor und setzen erst nach Rückfrage um.
+
 PartiUp ist ein gehärteter Prototyp (Closed Alpha) und **nicht produktionsreif** (`PRODUCTION-READINESS-v0.9.1.md`). Es vernetzt Orte, Themen, Communities und Menschen dort, wo Gemeinschaft ohnehin stattfindet, und führt niedrigschwellig ins Mitwirken und Entscheiden. Die Funktionen gibt es anderswo schon. PartiUp unterscheidet sich durch **Attraktivität, Zugänglichkeit und Erklärbarkeit** für Menschen **ohne Technik- oder Fachkenntnisse**, die heute Big-Tech-Apps nutzen. Ziel ist nicht die größte Funktionsfülle.
 
 Vier feste Prämissen jedes Releases (`QA-RELEASE-PROCESS.md` §7): schlanke, nachvollziehbare Grundstruktur · Interoperabilität und API-Readiness · DSGVO, Privacy- und Security-by-Design · hochwertige Mobile-first-UX und App-Readiness.
