@@ -24,6 +24,11 @@ Abgeleitet von BottomUpParti v0.9.3 – deshalb heißen Env-Variablen, Cookies u
 
 ## Zielsetzung und Zielgruppe
 
+**Leitprinzip (Vorgabe vom 2026-11-15, steht über allem):** PartiUp will besser, schöner, praktischer und innovativer sein als andere Angebote, ohne die Sicherheit außer Acht zu lassen. Für jede Funktion, Aufgabe oder Herausforderung werden auf dem Weg die neuesten technischen Lösungen geprüft.
+- Arbeitsregel: Vor jeder Umsetzung werden aktuelle Standards, Bibliotheken und UX-Muster kurz recherchiert; der PR nennt die geprüften Optionen und die Wahl.
+- Sicherheits- und Privacy-Regeln bleiben unberührt. Innovativ heißt bessere Lösungen, nicht mehr Funktionen (die Vorgabe vom 20.10.2026 unten gilt weiter).
+- Entscheidungen trifft die projektverantwortliche Person: Claude Code legt Optionen mit Empfehlung vor (Rückfrage) und setzt erst danach um. Routine wie Lesen, Testen und Folgearbeit innerhalb einer getroffenen Entscheidung braucht keine erneute Rückfrage.
+
 Funktionen wie Communities, Beteiligung, Veranstaltungen, Chats und Föderation gibt es bei anderen Anbietern längst. Das eigentliche Problem offener Alternativen ist, dass sie für normale Menschen wenig attraktiv, schwer zugänglich und schlecht erklärt sind. PartiUp richtet sich an Menschen **ohne Technik- oder Fachkenntnisse**. Sie nutzen heute Big-Tech-Apps, weil diese schnell und bequem sind, und wären offen für Alternativen, haben aber keine Zeit und keine Lust auf komplizierte Abläufe oder unattraktive Oberflächen. PartiUp will sich deshalb vor allem durch Attraktivität, Zugänglichkeit und Erklärbarkeit unterscheiden. Mehr Funktionen sind nicht das Ziel. (Nutzervorgabe vom 20.10.2026)
 
 Die vier festen Prämissen jedes Releases (`QA-RELEASE-PROCESS.md` §7):

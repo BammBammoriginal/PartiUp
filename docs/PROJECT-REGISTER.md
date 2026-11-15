@@ -80,6 +80,8 @@ Nur ausdrücklich getroffene Entscheidungen mit Datum. Weitere Entscheidungen au
 | 2026-10-26 | K2: zwei Schlüssel für externe Veröffentlichung (Autor + `content.publish_external` in nichtöffentlichen Spaces) · K5: vorerst akzeptiert, vor Pilot zwingend · K7: Quiet public umsetzen | V |
 | 2026-10-26 | Node.js-Security-Releases vom 20./21.10. übernehmen (24.22.1 bzw. 22.23.4), exakter Patchstand, kein blindes Major-Upgrade | V |
 | 2026-10-26 | Secrets, CI/CD, Artefakte, Least Privilege (inkl. KI-Agenten), Endpunkt-Matrix, Logout/Sitzungen, Security-Regressionstests, Privacy-Boundary-Matrix verbindlich; keine Funktionsausweitung bei Security-Arbeit | V |
+| 2026-11-15 | Leitprinzip über allem: besser, schöner, praktischer und innovativer als andere, ohne die Sicherheit außer Acht zu lassen; je Funktion die neuesten technischen Lösungen prüfen und im PR nennen; Regeln dürfen dafür geändert werden, Sicherheit wird nicht abgeschwächt; vor jeder Entscheidung wird die projektverantwortliche Person gefragt | V |
+| 2026-11-15 | Pakete A–D (#39–#42) nach Sichtprüfung gemergt; Freundschaftsanfragen werden direkt in der Benachrichtigung beantwortet (mit Avatar); Buchstaben-Avatar-Fehler (`safeIcon`) als eigener PR | V |
 | 2026-10-20 | Aus ChatGPT-Übergabe: Leitsätze „Mehr Raum für uns“, „Social Media kann auch sozial sein“; Namensalternative „Plura“; Drupal nur headless für Redaktionsinhalte, Open Social kein zweiter Core (ADR in PR #6 geschlossen, nicht gemergt) | zu bestätigen |
 
 ## Widersprüche zwischen den bisherigen Regelquellen (2026-10-26)
