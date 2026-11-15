@@ -594,11 +594,40 @@ async function notificationModal(refresh=false){
   // A refresh after marking as read must not reopen a dialog the person closed while the list was loading.
   // Only an explicit true counts: the bell passes its click event as the first argument.
   if(refresh===true&&!($('#modal').classList.contains('show')&&$('#modalContent .notification-list')))return;
-  $('#modalContent').innerHTML=`<div class="section-head"><h2>Benachrichtigungen</h2>${d.unread?`<button id="readAll">Alle als gelesen</button>`:''}</div><div class="notification-list">${d.items.length?d.items.map(n=>`<button class="notification-item ${n.read_at?'':'unread'}" data-notification="${escAttr(n.id)}"><b>${esc(n.title)}</b><span>${esc(n.body||'')}</span><small>${fmtTime(n.created_at)}</small></button>`).join(''):'<p class="empty">Keine Benachrichtigungen.</p>'}</div>`;
+  $('#modalContent').innerHTML=`<div class="section-head"><h2>Benachrichtigungen</h2>${d.unread?`<button id="readAll">Alle als gelesen</button>`:''}</div><div class="notification-list">${d.items.length?d.items.map(notificationItemHtml).join(''):'<p class="empty">Keine Benachrichtigungen.</p>'}</div>`;
   $('#modal').classList.add('show');
   if($('#readAll'))$('#readAll').onclick=async()=>{try{await api('/api/notifications/read',{method:'POST',body:JSON.stringify({})});await notificationModal(true)}catch(e){toast(e.message)}};
   $$('[data-notification]').forEach(b=>b.onclick=async()=>{const n=d.items.find(x=>x.id===b.dataset.notification);try{await api('/api/notifications/read',{method:'POST',body:JSON.stringify({id:b.dataset.notification})});if(openNotificationTarget(n))showNotificationCount(Math.max(0,(Number(state.notification_count)||0)-(n?.read_at?0:1)));else await notificationModal(true)}catch(e){toast(e.message)}});
+  $$('[data-notification-friend]').forEach(b=>b.onclick=()=>answerFriendRequestFromNotification(b));
  }catch(e){toast(e.message)}
+}
+// A friendship request is answered where it arrives. The decision only needs the pending request
+// (name and avatar from /api/friends); the requester's profile may stay private (404) throughout.
+function friendRequestState(n){
+ if(n?.type!=='friend_request'||n.entity_type!=='user')return null;
+ const f=state.friendships||{},id=String(n.entity_id);
+ return {pending:(f.incoming||[]).find(p=>String(p.id)===id)||null,friend:(f.friends||[]).some(p=>String(p.id)===id)};
+}
+function notificationItemHtml(n){
+ const text=`<b>${esc(n.title)}</b><span>${esc(n.body||'')}</span><small>${fmtTime(n.created_at)}</small>`,unread=n.read_at?'':'unread',req=friendRequestState(n);
+ if(!req)return `<button class="notification-item ${unread}" data-notification="${escAttr(n.id)}">${text}</button>`;
+ const p=req.pending,data=p?`data-notification-id="${escAttr(n.id)}" data-person="${escAttr(p.id)}"`:'';
+ const after=p?`<div class="notification-actions"><button class="primary" data-notification-friend="accept" ${data} aria-label="${escAttr(p.name+' annehmen')}">Annehmen</button><button data-notification-friend="decline" ${data} aria-label="${escAttr('Anfrage von '+p.name+' ablehnen')}">Ablehnen</button><button class="notification-meta-action" data-notification-friend="block" ${data} aria-label="${escAttr(p.name+' blockieren')}">Blockieren</button></div>`:`<small class="notification-resolved">${req.friend?'Ihr seid jetzt befreundet':'Anfrage nicht mehr offen'}</small>`;
+ const face=p?avatarHtml(p,'profile-avatar small'):'';
+ return `<div class="notification-item notification-request ${unread}"><div class="notification-request-head">${face}<button class="notification-open" data-notification="${escAttr(n.id)}">${text}</button></div>${after}</div>`;
+}
+async function answerFriendRequestFromNotification(button){
+ const kind=button.dataset.notificationFriend,id=encodeURIComponent(button.dataset.person);
+ if(kind==='block'&&!confirm('Diese Person blockieren? Eine offene Anfrage oder bestehende Freundschaft wird dabei entfernt.'))return;
+ const group=[...button.closest('.notification-actions').querySelectorAll('button')];group.forEach(x=>x.disabled=true);
+ try{
+  if(kind==='accept')await api('/api/friends/'+id+'/accept',{method:'POST'});
+  else if(kind==='decline')await api('/api/friends/'+id,{method:'DELETE'});
+  else await api('/api/users/'+id+'/block',{method:'POST'});
+  await api('/api/notifications/read',{method:'POST',body:JSON.stringify({id:button.dataset.notificationId})});
+  toast(kind==='accept'?'Freundschaft bestätigt':kind==='decline'?'Anfrage abgelehnt':'Person blockiert');
+  await notificationModal(true);
+ }catch(e){group.forEach(x=>x.disabled=false);toast(e.message)}
 }
 function openChat(id){messaging.activeId=id;go('messages');syncMobileNav('messages')}
 // Opens a post or comment where it lives (Space feed), scrolls to it and marks it. The server decides visibility.
@@ -608,7 +637,10 @@ function showNotificationCount(unread){state.notification_count=unread;const cou
 // Returns false when a notification has no place to open yet; the list then stays open.
 function openNotificationTarget(n){
  const id=n?.entity_id,type=n?.entity_type;if(!id)return false;
- const open={post:()=>openContent('post',id),comment:()=>openContent('comment',id),conversation:()=>openChat(id),community:()=>openCommunity(id,n.type==='membership_request'?'admin':'overview'),event:()=>openEvent(id,n.type==='event_request'?'participants':'overview'),user:()=>openPerson(id)}[type];
+ // A friendship request opens the friends area, never the requester's profile, which may be private.
+ const request=friendRequestState(n);
+ if(request&&!request.pending&&!request.friend){toast('Diese Anfrage ist nicht mehr offen.');return false}
+ const open=request?()=>personalNetworkModal('friends'):{post:()=>openContent('post',id),comment:()=>openContent('comment',id),conversation:()=>openChat(id),community:()=>openCommunity(id,n.type==='membership_request'?'admin':'overview'),event:()=>openEvent(id,n.type==='event_request'?'participants':'overview'),user:()=>openPerson(id)}[type];
  if(!open)return false;
  $('#modal').classList.remove('show');$('#modalContent').replaceChildren();open();return true;
 }
