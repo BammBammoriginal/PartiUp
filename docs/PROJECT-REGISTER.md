@@ -175,3 +175,46 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
   - (a) Ein zweiter offener Tab zeigt nach dem Logout die bereits geladenen Inhalte, bis er die nächste Anfrage stellt. Diese wird abgelehnt. Eine tabübergreifende Abmeldung wäre eine neue Funktion.
   - (b) Es gibt kein „Überall abmelden“ und keine Passwortänderung. Beides wird mit einer künftigen Konto- bzw. Sperrfunktion relevant; dann müssen alle Sitzungen der Person enden.
   - (c) `currentUserId` prüft den Kontostatus nicht selbst. Das ist heute unschädlich, weil nur die Kontolöschung den Status ändert und dabei alle Sitzungen löscht. Mit einer künftigen Sperrfunktion muss es nachgezogen werden.
+
+### 2026-10-28 – Stabilitäts- und UX-Paket, Paket A: Beitrittsanfragen
+- Verantwortlich / Agent: Projektverantwortlicher (Auftrag nach manuellem Test), Claude Code (Analyse und Umsetzung), Freigabe offen.
+- Bestätigte Ursachen:
+  - (1) Eine Beitrittsanfrage erzeugte keine Benachrichtigung; der Server speicherte sie nur.
+  - (2) Die Entscheidung prüfte den Status nicht. „Genehmigen“ machte auch Personen ohne Anfrage zum Mitglied, zwei Admins lösten doppelte Benachrichtigungen aus, und zurückgezogene oder schon entschiedene Anfragen ließen sich erneut entscheiden.
+  - (3) Es gab keinen Rückzug.
+  - (4) Ein Wechsel auf „offen“ ließ wartende Anfragen liegen.
+  - (5) Teilnahmeanfragen bei Veranstaltungen mit Freigabe benachrichtigten die Veranstalter ebenfalls nicht.
+  - (6) Benachrichtigungen ließen sich nur als gelesen markieren und führten nirgendwohin.
+- Umsetzung:
+  - Zuständig ist, wer im konkreten Space das Recht `space.manage_members` hat, bei Veranstaltungen `event.manage_participants` (`scopeHolders`). Entscheidend ist die Berechtigung, nicht der Rollenname; Moderatoren erhalten die Anfrage nur, wenn ihnen das Recht übertragen wurde.
+  - Eine Anfrage wird genau einmal entschieden (bedingtes Update in einer Transaktion, sonst HTTP 409).
+  - Rückzug: `DELETE /api/communities/:id/join-request`, nur für eine offene Anfrage, wiederholbar ohne Wirkung, auch ohne Leserecht am Space (eine Anfrage an einen geschlossenen Space bleibt zurückziehbar).
+  - In der Oberfläche öffnet „⏳ Beitritt angefragt“ ein kleines Menü mit „Beitrittsanfrage zurückziehen“ (bestehendes „•••“-Muster).
+  - Antippen einer Benachrichtigung öffnet Space, Veranstaltung oder Person. Bei Beitrittsanfragen öffnet sich die Verwaltung, bei Teilnahmeanfragen die Teilnehmerliste. Der Server prüft beim Laden erneut.
+- Zugangswechsel (gilt für Communities und Unterräume, beide nutzen dieselbe Logik):
+
+  | Wechsel | Bestehende Mitglieder | Wartende Anfragen | Einladungen |
+  |---|---|---|---|
+  | auf Anfrage → offen | bleiben | Wer nach der neuen Regel direkt beitreten darf und ein aktives Konto hat, wird einmalig normales Mitglied und benachrichtigt. | bleiben |
+  | auf Anfrage → Verifizierungsstufe | bleiben | Angenommen wird nur, wer die Mindeststufe erfüllt. Die übrigen bleiben offen. | bleiben |
+  | auf Anfrage → nur Einladung | bleiben | Eingeladene werden aufgenommen. Die übrigen Anfragen bleiben zur Entscheidung offen und werden nicht still abgelehnt. | bleiben |
+  | offen → auf Anfrage / Einladung | bleiben, kein rückwirkender Entzug | – | bleiben |
+
+  Ein Wechsel der Beitrittsregel ändert weder die Sichtbarkeit noch die Föderation. Rollen über „Mitglied“ werden nie automatisch vergeben.
+- Space-Ausprägungen:
+  - Communities und Unterräume nutzen denselben Ablauf.
+  - Veranstaltungen haben einen eigenen Teilnahmevertrag; sie erhalten nur die fehlende Benachrichtigung der Veranstalter.
+  - Projekte haben keinen Beitrittsantrag.
+  - Beteiligungsvorgänge haben eine Zugangsanfrage nur über die API, ohne Oberfläche. Das wurde nicht geändert und ist offen.
+- Bewusst nicht geändert:
+  - Eine abgelehnte Person kann erneut anfragen (bestehendes Verhalten).
+  - Space-Sperren gibt es im Modell nicht; ausgeschlossen werden nur gelöschte Konten.
+  - Eine bereits verschickte Anfrage-Benachrichtigung bleibt nach einem Rückzug bestehen. Die Verwaltung zeigt dann keine offene Anfrage mehr.
+- Testwechsel: Der Gold-Test „Benachrichtigung lesen aktualisiert Liste und Zähler“ erwartete, dass die Liste offen bleibt. Neues, gewünschtes Verhalten: Antippen öffnet den Inhalt, und der Zähler sinkt ohne Neuladen. Dabei fiel ein echter Fehler auf und wurde behoben: Der Zähler blieb zunächst stehen.
+- Nachweis:
+  - `tests/integration/join-requests.integration.js` (68 Prüfungen, in `qa:security`); vor der Korrektur rot bei „Owner is told about the request“.
+  - Browser-Test `join-request.gold.desktop/mobile` mit zwei Konten auf eigenem Server; gegen die Oberfläche von `main` rot.
+- Verbleibende Pakete aus dem Auftrag:
+  - B: Nachrichten und Zähler ohne Neuladen.
+  - C: Ziele für Nachrichten- und Kommentar-Benachrichtigungen, „Mein Feed“.
+  - D: „Mein Netzwerk“, gefolgte Bereiche, Autorenlinks.

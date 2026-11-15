@@ -149,6 +149,22 @@ function cleanPlaces(places){return [...new Set(safeArray(places,30).map(x=>text
 
 
 function notify(userId,type,title,body='',entityType='',entityId=''){if(!userId)return;db.prepare('INSERT INTO notifications(id,user_id,type,title,body,entity_type,entity_id) VALUES (?,?,?,?,?,?,?)').run('n-'+crypto.randomUUID(),userId,type,title,body,entityType,entityId)}
+// People whose current rights allow an action in this scope: the capability decides, not the role name.
+function scopeHolders(type,id,permission){
+  const row=permissionService.scopeRow(type,id);if(!row)return [];
+  const ids=new Set([row.created_by]),spaces=[type==='community'?id:row.owner_space_id].filter(Boolean);
+  for(const r of db.prepare('SELECT user_id FROM role_assignments WHERE scope_type=? AND scope_id=?').all(type,id))ids.add(r.user_id);
+  for(const s of spaces){ids.add(db.prepare('SELECT created_by FROM communities WHERE id=?').get(s)?.created_by);for(const r of db.prepare('SELECT user_id FROM memberships WHERE community_id=?').all(s))ids.add(r.user_id);for(const r of db.prepare("SELECT user_id FROM role_assignments WHERE scope_type='community' AND scope_id=?").all(s))ids.add(r.user_id);}
+  return [...ids].filter(u=>u&&db.prepare("SELECT 1 FROM users WHERE id=? AND COALESCE(account_status,'active')='active'").get(u)&&hasPermission(u,type,id,permission));
+}
+// A repeated click keeps the original request and does not notify the decision makers again.
+function requestCommunityMembership(c,userId){
+  const before=db.prepare('SELECT status FROM community_join_requests WHERE community_id=? AND user_id=?').get(c.id,userId)?.status;
+  db.prepare(`INSERT INTO community_join_requests(community_id,user_id,status) VALUES (?,?,'pending') ON CONFLICT(community_id,user_id) DO UPDATE SET status='pending',created_at=CASE WHEN status='pending' THEN created_at ELSE CURRENT_TIMESTAMP END,decided_at=NULL,decided_by=NULL`).run(c.id,userId);
+  if(before==='pending')return;
+  const who=getUserSafe(userId)?.name||'Jemand';
+  for(const m of scopeHolders('community',c.id,'space.manage_members'))if(m!==userId)notify(m,'membership_request','Neue Beitrittsanfrage',`${who} möchte ${c.name} beitreten.`,'community',c.id);
+}
 function linkMedia(mediaId,entityType,entityId,role){db.prepare('DELETE FROM media_links WHERE entity_type=? AND entity_id=? AND role=?').run(entityType,entityId,role);db.prepare('INSERT INTO media_links(media_id,entity_type,entity_id,role) VALUES (?,?,?,?)').run(mediaId,entityType,entityId,role)}
 async function persistImage(file,userId){
   const id='m-'+crypto.randomUUID();const img=sharp(file.buffer,{failOn:'warning',limitInputPixels:40_000_000}).rotate();const meta=await img.metadata();if(!meta.width||!meta.height)return Promise.reject(new Error('Ungültiges Bild'));if(meta.width*meta.height>40_000_000)return Promise.reject(new Error('Bildauflösung zu groß'));
@@ -783,13 +799,20 @@ app.put('/api/communities/:id/federation/remote-moderation',requireUser,(req,res
   res.json({ok:true,object_uri:objectUri,moderation_state:state});
 });
 
-app.post('/api/communities/:id/membership',requireUser,(req,res)=>{const c=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Community nicht gefunden.'});if(c.source==='external')return res.status(400).json({error:'Externe Community: Mitgliedschaft bleibt bei der Quelle.'});const d=communityAccessDecision(req.userId,c);if(!d.ok)return res.status(403).json({error:d.error});if(d.status==='request'){db.prepare(`INSERT INTO community_join_requests(community_id,user_id,status) VALUES (?,?,'pending') ON CONFLICT(community_id,user_id) DO UPDATE SET status='pending',created_at=CURRENT_TIMESTAMP`).run(c.id,req.userId);return res.status(202).json({membership:null,status:'requested'});}db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(c.id,req.userId);res.json({membership:'member',status:'joined'});});
+app.post('/api/communities/:id/membership',requireUser,(req,res)=>{const c=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Community nicht gefunden.'});if(c.source==='external')return res.status(400).json({error:'Externe Community: Mitgliedschaft bleibt bei der Quelle.'});const d=communityAccessDecision(req.userId,c);if(!d.ok)return res.status(403).json({error:d.error});if(d.status==='request'){requestCommunityMembership(c,req.userId);return res.status(202).json({membership:null,status:'requested'});}db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(c.id,req.userId);res.json({membership:'member',status:'joined'});});
 app.delete('/api/communities/:id/membership',requireUser,(req,res)=>{
   const m=mustBeMember(req.userId,req.params.id);if(!m)return res.json({membership:null});if(roleFor(req.userId,'community',req.params.id)==='owner')return res.status(400).json({error:'Die Owner-Mitgliedschaft erfordert zuerst eine geregelte Übergabe.'});
   db.transaction(()=>{db.prepare('DELETE FROM memberships WHERE community_id=? AND user_id=?').run(req.params.id,req.userId);db.prepare("DELETE FROM role_assignments WHERE scope_type='community' AND scope_id=? AND user_id=? AND role<>'guest'").run(req.params.id,req.userId)})();res.json({membership:null});
 });
 
-app.post('/api/communities/:id/join',requireUser,(req,res)=>{const c=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);const d=communityAccessDecision(req.userId,c);if(!d.ok)return res.status(403).json({error:d.error});if(d.status==='request'){db.prepare(`INSERT INTO community_join_requests(community_id,user_id,status) VALUES (?,?,'pending') ON CONFLICT(community_id,user_id) DO UPDATE SET status='pending',created_at=CURRENT_TIMESTAMP`).run(c.id,req.userId);return res.status(202).json({ok:true,status:'requested'});}db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(c.id,req.userId);res.json({ok:true,status:'joined'});});
+app.delete('/api/communities/:id/join-request',requireUser,(req,res)=>{
+  // Withdrawing works without view rights, so a request to a closed Space can still be taken back.
+  // Only an open request can be withdrawn; a decided one stays as it is.
+  const c=db.prepare('SELECT id FROM communities WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Community nicht gefunden.'});
+  const r=db.prepare("DELETE FROM community_join_requests WHERE community_id=? AND user_id=? AND status='pending'").run(c.id,req.userId);
+  res.json({ok:true,withdrawn:r.changes>0,join_request:db.prepare('SELECT status FROM community_join_requests WHERE community_id=? AND user_id=?').get(c.id,req.userId)?.status||null});
+});
+app.post('/api/communities/:id/join',requireUser,(req,res)=>{const c=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);const d=communityAccessDecision(req.userId,c);if(!d.ok)return res.status(403).json({error:d.error});if(d.status==='request'){requestCommunityMembership(c,req.userId);return res.status(202).json({ok:true,status:'requested'});}db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(c.id,req.userId);res.json({ok:true,status:'joined'});});
 // Explicit Fediverse publication needs two keys, like announcement rights on other platforms:
 // the author's consent for this post, and in a non-public Space the Space's external-publication right.
 // Restricting (inherit/disabled) stays open to the author and the Space administration.
@@ -904,14 +927,27 @@ app.post('/api/polls/:pollId/vote',requireUser,(req,res)=>{
 
 
 app.get('/api/communities/:id/join-requests',requireUser,(req,res)=>{if(!hasPermission(req.userId,'community',req.params.id,'space.manage_members'))return res.status(403).json({error:'Keine Berechtigung.'});res.json(db.prepare(`SELECT r.user_id,r.status,r.created_at,u.name,u.avatar,u.trust_level FROM community_join_requests r JOIN users u ON u.id=r.user_id WHERE r.community_id=? AND r.status='pending' ORDER BY r.created_at`).all(req.params.id));});
-app.post('/api/communities/:id/join-requests/:userId',requireUser,(req,res)=>{if(!hasPermission(req.userId,'community',req.params.id,'space.manage_members'))return res.status(403).json({error:'Keine Berechtigung.'});const decision=req.body?.decision==='approve'?'approved':'rejected';db.transaction(()=>{db.prepare('UPDATE community_join_requests SET status=?,decided_at=CURRENT_TIMESTAMP,decided_by=? WHERE community_id=? AND user_id=?').run(decision,req.userId,req.params.id,req.params.userId);if(decision==='approved')db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(req.params.id,req.params.userId);})();notify(req.params.userId,'membership',decision==='approved'?'Beitritt bestätigt':'Beitrittsanfrage abgelehnt',db.prepare('SELECT name FROM communities WHERE id=?').get(req.params.id)?.name||'Community','community',req.params.id);res.json({ok:true});});
+app.post('/api/communities/:id/join-requests/:userId',requireUser,(req,res)=>{if(!hasPermission(req.userId,'community',req.params.id,'space.manage_members'))return res.status(403).json({error:'Keine Berechtigung.'});const decision=req.body?.decision==='approve'?'approved':'rejected';const decided=db.transaction(()=>{const r=db.prepare("UPDATE community_join_requests SET status=?,decided_at=CURRENT_TIMESTAMP,decided_by=? WHERE community_id=? AND user_id=? AND status='pending'").run(decision,req.userId,req.params.id,req.params.userId);if(!r.changes)return false;if(decision==='approved')db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(req.params.id,req.params.userId);return true;})();if(!decided)return res.status(409).json({error:'Diese Anfrage ist nicht mehr offen. Sie wurde bereits bearbeitet oder zurückgezogen.'});notify(req.params.userId,'membership',decision==='approved'?'Beitritt bestätigt':'Beitrittsanfrage abgelehnt',db.prepare('SELECT name FROM communities WHERE id=?').get(req.params.id)?.name||'Community','community',req.params.id);res.json({ok:true});});
 app.put('/api/communities/:id/access',requireUser,(req,res)=>{
   const current=db.prepare('SELECT * FROM communities WHERE id=?').get(req.params.id);if(!current)return res.status(404).json({error:'Community nicht gefunden.'});
   if(!hasPermission(req.userId,'community',current.id,'space.manage_access'))return res.status(403).json({error:'Keine Berechtigung.'});
   const visibility=req.body?.visibility??current.visibility,join=req.body?.join_policy??current.join_policy,min=Number(req.body?.min_trust_level??current.min_trust_level);
   if(!['public','unlisted','private'].includes(visibility)||!['open','approval','invite','trust'].includes(join)||!Number.isInteger(min)||min<1||min>3)return res.status(400).json({error:'Ungültige Zugangsregel.'});
-  db.prepare("UPDATE communities SET visibility=?,join_policy=?,min_trust_level=?,federation_mode=CASE WHEN ?='public' THEN federation_mode WHEN federation_mode='public' THEN 'selected' ELSE federation_mode END WHERE id=?").run(visibility,join,min,visibility,current.id);
-  res.json(communityDetail(current.id,req.userId));
+  // Pending requests are judged by the new rule: whoever may now join directly becomes a normal member,
+  // once. Requests the new rule does not admit stay open for a decision; existing members stay.
+  const admitted=db.transaction(()=>{
+    db.prepare("UPDATE communities SET visibility=?,join_policy=?,min_trust_level=?,federation_mode=CASE WHEN ?='public' THEN federation_mode WHEN federation_mode='public' THEN 'selected' ELSE federation_mode END WHERE id=?").run(visibility,join,min,visibility,current.id);
+    if(join==='approval')return [];
+    const next={...current,join_policy:join,min_trust_level:min},out=[];
+    for(const r of db.prepare("SELECT r.user_id FROM community_join_requests r JOIN users u ON u.id=r.user_id WHERE r.community_id=? AND r.status='pending' AND COALESCE(u.account_status,'active')='active'").all(current.id)){
+      if(communityAccessDecision(r.user_id,next).status!=='join')continue;
+      if(!db.prepare("UPDATE community_join_requests SET status='approved',decided_at=CURRENT_TIMESTAMP,decided_by=? WHERE community_id=? AND user_id=? AND status='pending'").run(req.userId,current.id,r.user_id).changes)continue;
+      db.prepare("INSERT OR IGNORE INTO memberships(community_id,user_id,role) VALUES (?,?,'member')").run(current.id,r.user_id);out.push(r.user_id);
+    }
+    return out;
+  })();
+  for(const u of admitted)notify(u,'membership','Beitritt bestätigt',`${current.name}: Die Beitrittsregeln wurden geändert, deine Anfrage ist damit angenommen.`,'community',current.id);
+  res.json({...communityDetail(current.id,req.userId),admitted_requests:admitted.length});
 });
 app.put('/api/events/:id/schedule',requireUser,(req,res)=>{
   const e=db.prepare('SELECT * FROM events WHERE id=?').get(req.params.id);if(!e)return res.status(404).json({error:'Veranstaltung nicht gefunden.'});if(!hasPermission(req.userId,'event',e.id,'space.edit_profile'))return res.status(403).json({error:'Keine Berechtigung.'});if(e.source!=='native')return res.status(400).json({error:'Externe Veranstaltungen werden an ihrer Quelle geändert.'});
@@ -1007,7 +1043,9 @@ app.post('/api/events/:id/rsvp',requireUser,async(req,res)=>{
   }
   if(e.attendance_policy==='approval')status='requested';
   if(status==='going'&&e.max_participants){const n=Number(db.prepare("SELECT COUNT(*) n FROM event_attendance WHERE event_id=? AND status='going' AND user_id<>?").get(e.id,req.userId).n||0)+Number(db.prepare("SELECT COUNT(*) n FROM event_remote_attendance WHERE event_id=? AND status='going'").get(e.id).n||0);if(n>=e.max_participants)status='waitlist';}
+  const previous=db.prepare('SELECT status FROM event_attendance WHERE event_id=? AND user_id=?').get(e.id,req.userId)?.status;
   db.prepare(`INSERT INTO event_attendance(event_id,user_id,status,federation_state) VALUES (?,?,?,'local') ON CONFLICT(event_id,user_id) DO UPDATE SET status=excluded.status,federation_state='local',updated_at=CURRENT_TIMESTAMP`).run(e.id,req.userId,status);
+  if(status==='requested'&&previous!=='requested'){const who=getUserSafe(req.userId)?.name||'Jemand';for(const m of scopeHolders('event',e.id,'event.manage_participants'))if(m!==req.userId)notify(m,'event_request','Neue Teilnahmeanfrage',`${who} möchte an ${e.name} teilnehmen.`,'event',e.id);}
   res.json({ok:true,status,federated:false});
 });
 app.delete('/api/events/:id/rsvp',requireUser,async(req,res)=>{const e=db.prepare('SELECT * FROM events WHERE id=?').get(req.params.id);if(!e)return res.status(404).json({error:'Event nicht gefunden.'});const a=db.prepare('SELECT * FROM event_attendance WHERE event_id=? AND user_id=?').get(e.id,req.userId);if(e.source==='external'&&e.remote_uri&&e.remote_actor_uri&&['pending','accepted'].includes(a?.federation_state)&&isUserFederationEnabled(db,req.userId)){const fetched=await fetchActor(e.remote_actor_uri);const inbox=fetched.actor.inbox||fetched.actor.endpoints?.sharedInbox;if(inbox)await deliverActivity(db,req.userId,inbox,leaveActivityForEvent(req.userId,e.remote_uri,e.remote_actor_uri,a.join_activity_uri||''));}db.prepare('DELETE FROM event_attendance WHERE event_id=? AND user_id=?').run(e.id,req.userId);res.json({ok:true});});
