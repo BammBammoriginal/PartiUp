@@ -256,3 +256,25 @@ Nach der Vorrangregel wird keine restriktivere Regel eigenmächtig abgeschwächt
 - Nachweis:
   - `tests/integration/content-location.integration.js` (15 Prüfungen, in `qa:security`): Kommentar-Benachrichtigung zeigt auf den Kommentar; öffentlicher Beitrag für alle auflösbar; Antwort enthält nur IDs; geschlossener Space für Anonyme und Nichtmitglieder 404 mit gleichem Text wie unbekannt; ausgeblendeter Kommentar und entfernter Beitrag 404. Vor der Korrektur rot.
   - Browser-Test `content-links.gold.desktop/mobile`: Kommentar-Benachrichtigung öffnet den Kommentar im sichtbaren Bereich mit Fokus, auch nach Neuladen; Feed-Link öffnet den Beitrag; ungültiger Link meldet sich verständlich; Chat-Benachrichtigung öffnet die Unterhaltung. Vor der Korrektur rot (Benachrichtigung blieb offen). Eine Testkorrektur: `waitForApp` lädt `/` und verwarf den Hash; nach dem Neuladen wird deshalb direkt auf den Kommentar gewartet.
+
+### 2026-10-28 – Stabilitäts- und UX-Paket, Paket D: Mein Netzwerk und Autorenlinks
+
+- Bestätigte Ursachen:
+  - (1) Autorennamen reagierten nicht. `wirePersonLinks` ignorierte jeden Klick, dessen Ziel in einem `button` lag. Der Personen-Link ist aber selbst ein `button`, also wurde jeder Klick verworfen. Betroffen waren auch Namen im Home-Feed und in Chat-Nachrichten. Im Space-Feed waren Autor und Kommentar-Autor zudem nur Text.
+  - (2) „Mein Netzwerk“ schloss sich beim Öffnen eines Eintrags nicht; das Ziel öffnete sich dahinter.
+  - (3) „Gefolgte Bereiche“ zeigte nur Communities, Orte und Themen. Projekte, Veranstaltungen und Beteiligung fehlten, und gefolgte Communities, die nicht in der Startdaten-Liste standen (z. B. Unterräume), fielen still heraus.
+  - (4) Der Zähler „gefolgte Bereiche“ wurde an zwei Stellen verschieden berechnet (einmal mit Personen, einmal ohne) und sprang nach einem Folgen.
+- Umsetzung:
+  - `wirePersonLinks` überspringt nur noch Bedienelemente innerhalb des Links. Autor und Kommentar-Autor im Space-Feed sind Personen-Links. Ob ein Profil sichtbar ist, entscheidet weiter der Server (`/api/users/:id`, 404 ohne Unterschied zu „gibt es nicht“).
+  - `GET /api/follows/areas` (nur angemeldet) liefert gefolgte Communities, Unterräume, Projekte, Veranstaltungen und Beteiligungsvorgänge mit Name und Art, gefiltert mit `canViewScope`. Was die Person nicht mehr sehen darf, erscheint nicht.
+  - Das Pop-up gruppiert nach Art und kennzeichnet Unterräume. Jeder Eintrag öffnet sein Objekt; der Folgen-Button erlaubt Entfolgen an Ort und Stelle.
+  - Einträge, die eine andere Ansicht öffnen, schließen jedes Pop-up (`#modal`) und den mobilen Drawer zuerst. Folgen und Freundschaftsaktionen lassen das Pop-up offen.
+  - Ein gemeinsamer Zähler `areaFollowCount` zählt alle gefolgten Bereiche ohne Personen; Personen bleiben unter „Freunde“.
+- Bewusst nicht geändert bzw. offen:
+  - Der Zähler zählt gefolgte Bereiche auch dann, wenn einer inzwischen unsichtbar ist, die Liste aber nicht. Eine Bereinigung solcher Follows wäre eine eigene Entscheidung.
+  - Fediverse-Autoren bleiben Herkunftsangaben ohne Profilseite (bestehend).
+  - Folgen, Mitgliedschaft, Freundschaft und Teilnahme bleiben getrennte Beziehungen.
+- Nachweis:
+  - `tests/integration/follow-areas.integration.js` (16 Prüfungen, in `qa:security`): anonym 401; alle Space-Arten einschließlich Unterraum; nur Anzeigefelder; ein Space, der geschlossen wird, verschwindet; Entfolgen entfernt den Eintrag; Folgen ist keine Mitgliedschaft; ein privates Profil antwortet wie ein unbekanntes. Vor der Korrektur rot.
+  - Browser-Test `network.gold.desktop/mobile`: Projekte und Veranstaltungen erscheinen, der Zähler entspricht der Liste, Öffnen schließt das Pop-up und zeigt den Space, der Autorenname im Space-Feed öffnet das Profil, Entfolgen senkt den Zähler. Vor der Korrektur rot. Ein gezielter Gegenversuch mit allein zurückgenommener `wirePersonLinks`-Korrektur ist ebenfalls rot („Profil öffnet sich nicht“).
+- Preflight-Ersatz (Regel „Robuste statt starrer Tests“): Die Zeichenkettenprüfung „Network counts areas without people“ in `scripts/partiup-cross-space-consistency-preflight.js` verlangte den Wortlaut `const areaFollowCount=` und blockierte die verhaltensgleiche Umstellung auf eine gemeinsame Funktion. Sie ist ersetzt: Der Browser-Test folgt zusätzlich einer Person und verlangt, dass der Zähler genau der Bereichsliste entspricht. Der Preflight prüft nur noch, dass dieser Test existiert. Gegenprobe: Zählt der Code Personen mit, wird der Test rot.

@@ -3,7 +3,8 @@ const app=fs.readFileSync('public/app.js','utf8');
 const css=fs.readFileSync('public/style.css','utf8');
 const html=fs.readFileSync('public/index.html','utf8');
 const checks=[
- ['Network counts areas without people', app.includes('const areaFollowCount=') && app.includes("$('#followingCount').textContent=areaFollowCount")],
+ // Behaviour is checked by the browser test (count equals the listed areas while a person is followed); only its existence is guarded here.
+ ['Network count is covered by the followed-areas browser test', fs.existsSync('tests/helpers/network-flow.js') && fs.existsSync('tests/e2e/network.gold.desktop.spec.js') && fs.existsSync('tests/e2e/network.gold.mobile.spec.js')],
  ['Person follows live in people network', app.includes('Weitere gefolgte Personen') && app.includes('Personen-Follows findest du unter <b>Freunde & Personenbeziehungen</b>')],
  ['Following areas has no legacy people section', !/Gefolgte Bereiche[\s\S]{0,1800}<h3>Personen<\/h3>/.test(app)],
  ['Legacy follow-item navigation removed', !app.includes('data-follow-place') && !app.includes('data-follow-topic')],
