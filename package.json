@@ -105,7 +105,7 @@
     "follow-areas-integration": "node tests/integration/follow-areas.integration.js"
   },
   "dependencies": {
-    "better-sqlite3": "13.0.3",
+    "better-sqlite3": "13.2.0",
     "express": "4.22.3",
     "ipaddr.js": "1.9.1",
     "multer": "2.5.0",
